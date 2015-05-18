@@ -13,3 +13,6 @@
 
 #library source
 *.zip
+
+#client_secret
+default/application/client_secret.json
