@@ -1,0 +1,15 @@
+*~
+*.pyc
+.idea
+.DS_Store
+*.p12
+*.pem
+
+*/bower_components
+*/node_modules
+*/lib
+*/sources
+*/public
+
+#library source
+*.zip
