@@ -1,0 +1,11 @@
+application: mitac-cheerspoint-v20150518
+module: ownership
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: yes
+
+handlers:
+- url: /google40fc41ccc276e5c5.html
+  static_files: google40fc41ccc276e5c5.html
+  upload: google40fc41ccc276e5c5.html
