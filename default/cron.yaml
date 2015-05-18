@@ -1,0 +1,4 @@
+cron:
+- description: check email schedule job
+  url: /tasks/schedule
+  schedule: every 1 mins

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block maincontent %}
+    <h3>Send Email</h3>
+    <div class="row marketing">
+        <div class="col-lg-12">
+
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Category</th>
+                    <th>Recipeints</th>
+                    <th>To</th>
+                    <th>Template</th>
+                    <th>Schedule</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for data_sendmail in data_sendmails %}
+                    <tr>
+                        <td>{{ data_sendmail.subject }}</td>
+                        <td>{{ data_sendmail.category }}</td>
+                        <td>{{ data_sendmail.recipients_name }} ({{ data_sendmail.recipients_count }})</td>
+                        <td>{{ data_sendmail.toname }} : {{ data_sendmail.toemail }}</td>
+                        <td>{{ data_sendmail.template_name }}
+                        </td>
+                        <td>{{ utlis.get_datetime(data_sendmail.schedule) }}</td>
+                        <td>
+                            {% if data_sendmail.status == 'Sending' %}
+                                {{ data_sendmail.status }} ({{ data_sendmail.success_count }} |
+                                {{ data_sendmail.error_count }})
+                            {% else %}
+                                {{ data_sendmail.status }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/sendmail?delete_sendmail={{ data_sendmail.key.urlsafe() }}"
+                               class="btn btn-danger btn-xs pull-right">Delete</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+    <div class="row marketing">
+        <div class="col-lg-12">
+            <form class="form-horizontal" role="form" action="/sendmail" method="post">
+                <div class="form-group">
+                    <label for="inputRecipient" class="col-sm-2 control-label">Recipient</label>
+
+                    <div class="col-sm-10">
+                        <select name="sendmail_recipient" id="inputRecipient" class="form-control" required>
+                            <option value="">-- choose Recipient --</option>
+                            {% for recipient in data_recipeints %}
+                                <option value="{{ recipient.key.urlsafe() }}">{{ recipient.name }}
+                                    ({{ recipient.count }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputSubject" class="col-sm-2 control-label">Subject</label>
+
+                    <div class="col-sm-10">
+                        <input class="form-control" id="inputSubject" name="sendmail_subject" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputTemplate" class="col-sm-2 control-label">Template</label>
+
+                    <div class="col-sm-10">
+                        <select id="inputTemplate" name="sendmail_template" class="form-control" required>
+                            <option value="">-- choose Tempalte --</option>
+                            {% for template in data_templates %}
+                                <option value="{{ template.key.urlsafe() }}">{{ template.filename }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputSchedule" class="col-sm-2 control-label">Schedule</label>
+
+                    <div class="col-sm-10">
+                        <div class='input-group date' id='datetimepicker2'>
+                            <input id="inputSchedule" name="sendmail_schedule" type='text' class="form-control"
+                                   pattern="^(19|20)\d{2}\/(0[1-9]|1[0-2])\/(0[1-9]|1\d|2\d|3[01]) ([01]\d|2[0-3]):?[0-5]\d$"
+                                   required/>
+                                <span class="input-group-addon"><span class="glyphicon glyphicon-calendar"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputToName" class="col-sm-2 control-label">發送者名稱</label>
+
+                    <div class="col-sm-10">
+                        <input id="inputToName" type="text" class="form-control" id="inputSubject"
+                               name="sendmail_toname" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputToEmail" class="col-sm-2 control-label">發送者Email</label>
+
+                    <div class="col-sm-10">
+                        <input id="inputToEmail" type="email" class="form-control" id="inputSubject"
+                               name="sendmail_toemail" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="inputCategory" class="col-sm-2 control-label">Category</label>
+
+                    <div class="col-sm-10">
+                        <input id="inputCategory" type="text" class="form-control" id="inputSubject"
+                               name="sendmail_category" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-2 col-sm-10">
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,14 @@
+application: mitac-cheerspoint-v20150518
+
+dispatch:
+  - url: "*/favicon.ico"
+    module: default
+
+  - url: "mitac-cheerspoint-v20150518/"
+    module: default
+
+  - url: "*/google40fc41ccc276e5c5.html"
+    module: ownership
+
+  - url: "*/*"
+    module: "default"
