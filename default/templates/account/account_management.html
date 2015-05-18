@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+
+{% block maincontent %}
+
+  <ol class="breadcrumb">
+    <li class="active">Account Managment</li>
+  </ol>
+
+  <a class="btn btn-success" href="/account_management/new">Add new</a>
+
+  <table class="table">
+    <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Account Enabled</th>
+      <th>Report Enabled</th>
+      <th>Admin</th>
+      <th></th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for ndb_user in users %}
+      <tr>
+        <td>{{ ndb_user.name }}</td>
+        <td>{{ ndb_user.email }}</td>
+        <td>{{ ndb_user.account_enabled }}</td>
+        <td>{{ ndb_user.report_enabled }}</td>
+        <td>{{ ndb_user.is_admin }}</td>
+        <td>
+          <a href="/account_management/{{ ndb_user.key.urlsafe() }}">Edit</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+
+{% endblock %}

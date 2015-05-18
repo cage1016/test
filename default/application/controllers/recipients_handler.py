@@ -1,9 +1,10 @@
+
 __author__ = 'cage'
 
 import time
 import csv
 
-from application.controllers.basehandler import UserHandler
+from application.controllers.base import BaseRequestHandler
 from google.appengine.api.taskqueue import taskqueue
 
 from google.appengine.ext import ndb
@@ -13,7 +14,7 @@ from application.models import Recipient, RecipientData
 CHUCKS_SIZE = 50
 
 
-class RecipientsManageHandler(UserHandler):
+class RecipientsManageHandler(BaseRequestHandler):
     def get_chucks(self, l, n):
         if n < 1:
             n = 1
@@ -51,7 +52,7 @@ class RecipientsManageHandler(UserHandler):
 
         params = {}
 
-        ancestor_key = ndb.Key('User', self.user.email())
+        ancestor_key = ndb.Key('User', self.user.get('email'))
 
         query = Recipient.query(ancestor=ancestor_key)
         query = query.filter(Recipient.status != 'Deleting')
@@ -72,7 +73,7 @@ class RecipientsManageHandler(UserHandler):
             handle file upload, parse csv and save to datastore
             """
 
-            ancestor_key = ndb.Key('User', self.user.email())
+            ancestor_key = ndb.Key('User', self.user.get('email'))
             new_recipient = Recipient.get_or_insert(str(int(time.time())), parent=ancestor_key)
 
             content = self.request.POST.multi['recipients_file'].file.read()

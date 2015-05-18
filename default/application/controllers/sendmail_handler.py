@@ -4,11 +4,10 @@ import json
 import time
 from datetime import datetime
 
-from application.controllers.basehandler import UserHandler
+from application.controllers.base import BaseRequestHandler, my_login_required
 
 from google.appengine.datastore.datastore_query import Cursor
 from google.appengine.api.taskqueue import taskqueue
-from google.appengine.ext.webapp.util import login_required
 from google.appengine.ext import ndb
 
 from application import blob_files, blob_serve, utils
@@ -17,13 +16,13 @@ from application.models import ScheduleEmail, Recipient, RecipientData, Recipien
 CHUCKS_SIZE = 50
 
 
-class SendMailHandler(UserHandler):
+class SendMailHandler(BaseRequestHandler):
     def get_chucks(self, l, n):
         if n < 1:
             n = 1
         return [l[i:i + n] for i in range(0, len(l), n)]
 
-    # @login_required
+    @my_login_required
     def get(self):
 
         delete_sendmail = self.request.get('delete_sendmail')
@@ -41,7 +40,7 @@ class SendMailHandler(UserHandler):
 
         params = {}
 
-        ancestor_key = ndb.Key('User', self.user.email())
+        ancestor_key = ndb.Key('User', self.user.get('email'))
         data_recipeints = Recipient.query_recipient(ancestor_key).fetch()
         data_templates = blob_files.BlobFiles.query_template(ancestor_key).fetch()
 
@@ -68,7 +67,7 @@ class SendMailHandler(UserHandler):
         data_recipient = ndb.Key(urlsafe=sendmail_recipient).get()
         data_template = ndb.Key(urlsafe=sendmail_template).get()
 
-        ancestor_key = ndb.Key('User', self.user.email())
+        ancestor_key = ndb.Key('User', self.user.get('email'))
         key_name = '%s_%d' % (self.user.email, int(time.time()))
 
         new_sendmail = ScheduleEmail.get_or_insert(key_name, parent=ancestor_key)

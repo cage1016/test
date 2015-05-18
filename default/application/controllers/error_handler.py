@@ -1,18 +1,19 @@
 __author__ = 'cage'
 
-from application.controllers.basehandler import BaseHandler
+import webapp2
+from application.controllers.base import BaseRequestHandler
 
 
-class Handle403(BaseHandler):
+class Handle403(BaseRequestHandler):
     def get(self):
         self.render("403.html")
 
 
-class Handle404(BaseHandler):
+class Handle404(BaseRequestHandler):
     def get(self):
         self.render("404.html")
 
 
-class Handle500(BaseHandler):
+class Handle500(BaseRequestHandler):
     def get(self):
         self.render("500.html")

@@ -2,9 +2,7 @@ __author__ = 'cage'
 
 import logging
 
-from application.controllers.basehandler import UserHandler
-
-from google.appengine.ext.webapp.util import login_required
+from application.controllers.base import BaseRequestHandler, my_login_required
 from google.appengine.ext import ndb
 
 from application import blob_files
@@ -14,8 +12,8 @@ GCS_UPLOAD_FOLDER = '/upload'
 BUCKET = 'ddim-mail-1'
 
 
-class TemplateManageHandler(UserHandler):
-    @login_required
+class TemplateManageHandler(BaseRequestHandler):
+    @my_login_required
     def get(self):
 
 
@@ -29,7 +27,7 @@ class TemplateManageHandler(UserHandler):
 
         params = {}
 
-        ancestor_key = ndb.Key('User', self.user.email())
+        ancestor_key = ndb.Key('User', self.user.get('email'))
         user_templates = blob_files.BlobFiles.query_template(ancestor_key).fetch()
 
         params.update(dict(templates=user_templates))
@@ -46,7 +44,7 @@ class TemplateManageHandler(UserHandler):
         if file_data:
 
             filename = self.request.POST["file"].filename
-            ancestor_key = ndb.Key('User', self.user.email())
+            ancestor_key = ndb.Key('User', self.user.get('email'))
             bf = blob_files.BlobFiles.new(filename, bucket=BUCKET, folder=GCS_UPLOAD_FOLDER,
                                           ancestor_key=ancestor_key)
             if bf:
