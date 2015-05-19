@@ -132,7 +132,7 @@ var browserifyTask = function (options) {
             './bower_components/moment/min/moment.min.js',
             './bower_components/eonasdan-bootstrap-datetimepicker/src/js/bootstrap-datetimepicker.js',
             './bower_components/bootstrap-daterangepicker/daterangepicker.js',
-            './bower_components/react/react.js',
+            './bower_components/react/react.min.js',
             './bower_components/reactable/build/reactable.js',
             './bower_components/jquery.csv.js'
         ])
@@ -219,7 +219,8 @@ var doRun = function (development) {
             './bower_components/todc-bootstrap/dist/css/tdoc-bootstrap.css',
             './bower_components/eonasdan-bootstrap-datetimepicker/build/css/bootstrap-datetimepicker.min.css',
             './bower_components/bootstrap-daterangepicker/daterangepicker-bs3.css',
-            './assets/stylesheet/custom.css'
+            './assets/stylesheet/custom.css',
+            './assets/stylesheet/spinner.css'
         ],
         dest: './public/css'
     });

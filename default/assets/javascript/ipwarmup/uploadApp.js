@@ -51,7 +51,7 @@ var RecipientList = React.createClass({
         {recipients}
         </tbody>
       </table>
-    )
+    );
   }
 });
 
