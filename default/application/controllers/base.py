@@ -311,3 +311,18 @@ def report_user_required(handler_method):
         handler_method(self, *args, **kwargs)
 
   return check_poc_user_login
+
+
+
+
+def ValidateGCSWithCredential(function):
+  def _decorated(self, *args, **kwargs):
+    credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.full_control')
+    http = credentials.authorize(httplib2.Http(memcache))
+    self.gcs_service = build('storage', 'v1', http=http, developerKey=settings.DEVELOPER_KEY)
+
+    self.gcs_service.BUCKET = settings.BUCKET
+
+    return function(self, *args, **kwargs)
+
+  return _decorated

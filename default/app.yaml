@@ -17,6 +17,10 @@ handlers:
   http_headers:
     Access-Control-Allow-Origin: "*"
 
+- url: /_ah/spi/.*
+  script: application.app.API
+  secure: always
+
 - url: .*
   script: application.app.router
   secure: always
@@ -26,6 +30,8 @@ libraries:
   version: "2.6"
 - name: webapp2
   version: "2.5.2"
+- name: endpoints
+  version: 1.0
 
 skip_files:
 # Default patterns skipped by App Engine, which must be repeated since

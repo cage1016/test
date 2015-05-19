@@ -2,6 +2,8 @@
 # -*- coding:utf-8 -*-
 
 import webapp2
+import endpoints
+from application.apis import recipients
 
 from application.controllers.base import *
 from application.controllers.recipients_handler import RecipientsManageHandler
@@ -9,6 +11,7 @@ from application.controllers.sendmail_handler import SendMailHandler
 from application.controllers.template_handler import TemplateManageHandler
 from application.controllers.reports_handler import reports_routes
 from application.controllers.account_handler import account_management_route
+from application.controllers.ipwarmup_handler import ip_warmup_route
 
 from application import blob_serve
 from application.controllers.error_handler import Handle403, Handle404, Handle500
@@ -63,9 +66,14 @@ routes = [
 # add reports routes
 routes.extend(reports_routes)
 routes.extend(account_management_route)
+routes.extend(ip_warmup_route)
 
 router = webapp2.WSGIApplication(routes, config=app_config, debug=True)
 
 # router.error_handlers[404] = Webapp2HandlerAdapter(Handle404)
 router.error_handlers[403] = Webapp2HandlerAdapter(Handle403)
 # router.error_handlers[500] = Webapp2HandlerAdapter(Handle500)
+
+API = endpoints.api_server([
+  recipients.RecipientApi
+])
