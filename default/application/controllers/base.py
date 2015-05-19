@@ -11,6 +11,7 @@ import logging
 from webapp2_extras import sessions, jinja2
 from jinja2.runtime import TemplateNotFound
 
+from apiclient import discovery
 from apiclient.discovery import build
 from oauth2client.client import AccessTokenRefreshError
 from oauth2client.client import flow_from_clientsecrets
@@ -31,6 +32,10 @@ def jinja2_date_filter(date, fmt=None):
   else:
     return date.strftime('%Y-%m')
 
+# Build a service object for interacting with the API.
+api = 'cheerspoint'
+version = 'v1'
+discovery_url = '%s/discovery/v1/apis/%s/%s/rest' % (settings.API_ROOT, api, version)
 
 # oauth
 # Set deadline of urlfetch in order to prevent 5 second timeout
@@ -40,7 +45,7 @@ urlfetch.set_default_fetch_deadline(45)
 client_type, client_info = loadfile(settings.CLIENT_SECRETS)
 FLOW = flow_from_clientsecrets(
   settings.CLIENT_SECRETS,
-  scope=('https://www.googleapis.com/auth/userinfo.email'),
+  scope=['https://www.googleapis.com/auth/userinfo.email','https://www.googleapis.com/auth/devstorage.read_write'],
   redirect_uri=client_info['redirect_uris'][0], )
 FLOW.params.update({'access_type': 'offline'})
 FLOW.params.update({'approval_prompt': 'force'})
@@ -313,6 +318,38 @@ def report_user_required(handler_method):
   return check_poc_user_login
 
 
+def ValidateCheerspointServiceWithCredential(function):
+  """A decorator to validate credential."""
+
+  def _decorated(self, *args, **kwargs):
+    if 'credential' in self.session:
+      # Load credential from session data.
+      credential = pickle.loads(self.session.get('credential'))
+      http = httplib2.Http()
+      if credential.access_token_expired:
+        try:
+          credential.refresh(http)
+        except AccessTokenRefreshError:
+          # When credential is invalid and refreshing fails, it returns 401.
+          self.response.set_status(401)
+          self.response.write('Unauthorized Access - Credential refresh failed')
+          self.LogOut()
+          return
+        else:
+          # Saves refreshed credential back to session data.
+          self.session['credential'] = pickle.dumps(credential)
+      http = credential.authorize(http)
+      # self.drive_service = build('drive', 'v2', http=http)
+      self.cheeerspoint_service = discovery.build(api, version, discoveryServiceUrl=discovery_url, http=http)
+
+      # for local testing
+      # self.access_token = credential.access_token
+      return function(self, *args, **kwargs)
+    else:
+      self.response.set_status(401)
+      self.response.write('Unauthorized Access - User not logged in')
+
+  return _decorated
 
 
 def ValidateGCSWithCredential(function):

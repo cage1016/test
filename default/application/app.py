@@ -57,8 +57,10 @@ routes = [
   ('/tasks/schedule', 'application.tasks.schedule_handler.ScheduleHandler'),
   ('/tasks/mailer', 'application.tasks.mailer_handler.MailerHandler'),
   ('/tasks/worker', 'application.tasks.worker_handler.WorkHandler'),
+
   ('/tasks/delete/recipeints', 'application.tasks.delete_handler.RecipientDeleteHandler'),
   ('/tasks/delete/recipeint_queue', 'application.tasks.delete_handler.RecipientQueueDataDeleteHandler'),
+  ('/tasks/delete/recipeint_txt_queue', 'application.tasks.delete_handler.RecipientTxtDeleteHandler'),
 
   ('/use_blobstore/([^/]+)?', blob_serve.UseBlobstore)
 ]

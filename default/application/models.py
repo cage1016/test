@@ -1,5 +1,7 @@
 __author__ = 'cage'
 
+import datetime
+
 from google.appengine.ext import ndb
 import webapp2_extras.appengine.auth.models as auth_models
 
@@ -11,6 +13,42 @@ class User(auth_models.User):
   account_enabled = ndb.BooleanProperty(default=False)
   report_enabled = ndb.BooleanProperty(default=False)
   description = ndb.TextProperty(default='')
+
+
+SIMPLE_TYPES = (int, long, float, bool, dict, basestring, list)
+
+
+class RecipientTxt(ndb.Model):
+  object_name = ndb.StringProperty()
+  display_name = ndb.StringProperty()
+  bucket = ndb.StringProperty()
+  size = ndb.IntegerProperty()
+  content_type = ndb.StringProperty()
+  created = ndb.DateTimeProperty(auto_now_add=True)
+
+  def to_dict(self):
+    output = {}
+
+    for key, prop in self._properties.iteritems():
+      value = getattr(self, key)
+
+      if value is None or isinstance(value, SIMPLE_TYPES):
+        output[key] = value
+      elif isinstance(value, datetime.date):
+        # Convert date/datetime to MILLISECONDS-since-epoch (JS "new Date()").
+        # ms = time.mktime(value.utctimetuple()) * 1000
+        # ms += getattr(value, 'microseconds', 0) / 1000
+        # output[key] = int(ms)
+        output[key] = value.strftime('%Y-%m-%d %H:%M:%S')
+      elif isinstance(value, ndb.GeoPt):
+        output[key] = {'lat': value.lat, 'lon': value.lon}
+      elif isinstance(value, ndb.Model):
+        output[key] = self.to_dict(value)
+      else:
+        raise ValueError('cannot encode ' + repr(prop))
+
+    output['urlsafe'] = self.key.urlsafe()
+    return output
 
 
 class IPWarmup(ndb.Model):

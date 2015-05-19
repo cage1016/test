@@ -7,6 +7,7 @@ from protorpc import remote
 from application.controllers.base import ValidateGCSWithCredential
 from application.apis.recipients_messages import *
 from application.settings import cheerspoint_api
+from application.models import RecipientTxt
 
 from google.appengine.datastore.datastore_query import Cursor
 from google.appengine.ext.db import Error, BadValueError
@@ -34,14 +35,16 @@ class RecipientApi(remote.Service):
 
     self.check_authenciation()
 
-    email = endpoints.get_current_user().email()
     media = MediaInMemoryUpload(request.body, mimetype=request.content_type)
 
     try:
+      object_resource = {
+        'name': 'ipwarmup/{file_name}'.format(file_name=request.file_name.encode('utf8'))
+      }
 
       req = self.gcs_service.objects().insert(
         bucket=self.gcs_service.BUCKET,
-        name='{email}/{file_name}'.format(email=email, file_name=request.file_name).encode('utf8'),
+        body=object_resource,
         media_body=media
       )
       resp = req.execute()
@@ -52,11 +55,13 @@ class RecipientApi(remote.Service):
 
     logging.debug(json.dumps(resp))
 
-    # ancestor_key = ndb.Key('User', email)
-    # waypoint = Waypoints(parent=ancestor_key, id=resp.get('id'))
-    # waypoint.object_name = resp.get('name')
-    # waypoint.put()
-    #
+    recipient_text = RecipientTxt.get_or_insert(resp.get('id'))
+    recipient_text.name = resp.get('name')
+    recipient_text.bucket = resp.get('bucket')
+    recipient_text.size = int(resp.get('size'))
+    recipient_text.content_type = resp.get('contentType')
+    recipient_text.put()
+
     rir = RecipientInsertResponse()
     rir.id = resp.get('id')
     rir.name = resp.get('name')

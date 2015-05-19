@@ -13,6 +13,12 @@ else:
 
 logging.info("Starting application in DEBUG mode: %s", DEBUG)
 
+# endpoint api
+if DEBUG:
+  API_ROOT = 'http://localhost:8080/_ah/api'
+else:
+  API_ROOT = 'https://mitac-cheerspoint-v20150518.appspot.com/_ah/api'
+
 CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'client_secret.json')
 
 WEB_CLIENT_ID = '24182559640-juv18blbdckri5rsp4ik0e0th9v5lfph.apps.googleusercontent.com'
