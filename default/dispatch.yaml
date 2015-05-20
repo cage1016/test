@@ -4,8 +4,11 @@ dispatch:
   - url: "*/favicon.ico"
     module: default
 
-  - url: "mitac-cheerspoint-v20150518/"
+  - url: "mitac-cheerspoint-v20150518.appspot.com/"
     module: default
+
+  - url: "*/tasks/*"
+    module: tasks
 
   - url: "*/google40fc41ccc276e5c5.html"
     module: ownership

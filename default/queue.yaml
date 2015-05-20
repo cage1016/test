@@ -12,9 +12,11 @@ queue:
     task_retry_limit: 3
     task_age_limit: 20m
 
-
 - name: recipient-delete
   rate: 1/s
 
 - name: recipient-queue-delete
+  rate: 1/s
+
+- name: parsecsv
   rate: 1/s

@@ -1,0 +1,27 @@
+application: mitac-cheerspoint-v20150518
+module: tasks
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: yes
+
+#instance_class: F2
+#automatic_scaling:
+#  min_idle_instances: 5
+#  max_idle_instances: automatic  # default value
+#  min_pending_latency: 30ms  # default value
+#  max_pending_latency: automatic
+#  max_concurrent_requests: 50
+
+handlers:
+- url: /favicon\.ico
+  static_files: favicon.ico
+  upload: favicon\.ico
+
+- url: /.*
+  script: app.router
+  secure: always
+
+libraries:
+- name: webapp2
+  version: "2.5.2"
