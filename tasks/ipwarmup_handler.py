@@ -5,15 +5,17 @@ import logging
 import io
 import csv
 import datetime
+import json
 
 from delorean import parse
 
+from google.appengine.ext.db import Error
 from google.appengine.ext import ndb, deferred
 from apiclient.http import MediaIoBaseDownload
 
 from utils import ipwarmup_day_sending_rate
 
-from models import RecipientData, IpWarmupSchedule
+from models import RecipientData, IpWarmupSchedule, RecipientQueueData
 import settings
 
 
@@ -56,7 +58,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
     # sending rate
     # [91,83..]
     sending_rate = ipwarmup_day_sending_rate(ip_warmup_schedule_days, ip_counts, how_many_hours_do_the_job)
-
+    logging.info(sending_rate)
 
     # handle csv parse
     with open(file_name, 'r') as csvfile:
@@ -69,6 +71,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
       save_queue = []
       save_queue_size = 50
       save_queue_index = 0
+      new_ip_warmup_schedule = None
       for index, row in enumerate(csv_reader):
 
         if index_of_hour + 1 >= len(sending_rate):
@@ -92,7 +95,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
           pre_index = index_of_hour
 
         # debug only
-        # print index + 1, index_of_hour + 1, count
+        print index + 1, index_of_hour + 1, count
 
         if (index + 1) > recipient_skip:
           new_recipient_data = RecipientData(parent=new_ip_warmup_schedule.key)
@@ -104,21 +107,23 @@ class ParseCSVHandler(webapp2.RequestHandler):
           save_queue.append(new_recipient_data)
           save_queue_index = save_queue_index + 1
 
-          if save_queue_index > save_queue_size:
-            entityites = ndb.put_multi(save_queue)
-
-            if entityites:
-              save_queue = []
-              save_queue_index = 0
-            else:
-              logging.error(str(save_queue) + ' error')
+          if save_queue_index + 1 > save_queue_size:
+            save_queue, save_queue_index, error = self.save(new_ip_warmup_schedule, save_queue)
+            if error:
+              logging.error('ipwarmup error occured: %s' % error)
+              break
 
           count = count + 1
 
-        if count > sending_rate[index_of_hour]:
+        if count  > sending_rate[index_of_hour]:
           # update previous hour inner count
           new_ip_warmup_schedule.number_of_sending_mail = count - 1
           new_ip_warmup_schedule.put()
+
+          save_queue, save_queue_index, error = self.save(new_ip_warmup_schedule, save_queue)
+          if error:
+            logging.error('ipwarmup error occured: %s' % error)
+            break
 
           count = 1
           index_of_hour = index_of_hour + 1
@@ -130,11 +135,31 @@ class ParseCSVHandler(webapp2.RequestHandler):
 
       # check save_queue if new_recipient_data < 50
       if len(save_queue) > 0:
-        entityites = ndb.put_multi(save_queue)
+        save_queue, save_queue_index, error = self.save(new_ip_warmup_schedule, save_queue)
+        if error:
+          logging.error('ipwarmup error occured: %s' % error)
 
-        if entityites:
-          save_queue = []
-          save_queue_index = 0
-        else:
-          logging.error(str(save_queue) + ' error')
+  def save(self, new_ip_warmup_schedule, save_queue):
+    """
+    :param save_queue:
+    :return: []:list_of_key, []:save_queue, 0:save_queue_index, error:error message
+    """
 
+    try:
+
+      if len(save_queue) > 0:
+        list_of_key = ndb.put_multi(save_queue)
+
+        rqd = RecipientQueueData(data=json.dumps([x.to_dict() for x in save_queue]))
+        rqd.put()
+
+        new_ip_warmup_schedule.recipientQueue.append(rqd.key)
+        new_ip_warmup_schedule.put()
+
+        return [], 0, None
+
+      else:
+        return [], 0, None
+
+    except Error, error:
+      return [], 0, error
