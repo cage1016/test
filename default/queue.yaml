@@ -17,8 +17,12 @@ queue:
   rate: 1/s
 
 - name: recipient-queue-delete
-- name: recipient-queue-delete
   rate: 1/s
 
 - name: parsecsv
   rate: 1/s
+
+- name: webhook
+  rate: 5/s
+  bucket_size: 10
+  max_concurrent_requests: 10

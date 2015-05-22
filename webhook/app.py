@@ -1,7 +1,11 @@
+# coding=utf-8
+
 import logging
 import webapp2
 import json
+import re
 
+from google.appengine.api.taskqueue import taskqueue
 from models import FlexWebhook
 
 
@@ -11,25 +15,31 @@ class WebhookHandler(webapp2.RequestHandler):
     self.response.write("Welcome to the webhook module.")
 
   def post(self):
-    try:
+    taskqueue.add(url='/webhook/worker',
+                  params={
+                    'body': self.request.body
+                  },
+                  queue_name='webhook')
 
-      events = json.loads(self.request.body)
-      logging.info('items= ' + str(events))
 
-      for event in events:
-        webhook = FlexWebhook()
+class WebookParserWorkerHandler(webapp2.RequestHandler):
+  def post(self):
 
-        for key, value in event.items():
+    events = json.loads(self.request.get('body'))
+
+    logging.info('items= ' + str(events))
+
+    for event in events:
+      webhook = FlexWebhook()
+
+      for key, value in event.items():
+        if key == 'smtp-id':
+          m = re.search(r'<(.*)>', value)
+          webhook.populate(**{key: m.group(1)})
+        else:
           webhook.populate(**{key: value})
 
-        webhook.put()
-
-      self.response.headers['Content-Type'] = 'text/plain'
-      self.response.write('Successfully added new todo')
-
-    except:
-
-      raise Exception("Error: could not complete request")
+      webhook.put()
 
 
 class QueryHandler(webapp2.RequestHandler):
@@ -39,6 +49,7 @@ class QueryHandler(webapp2.RequestHandler):
 
 routes = [
   (r'/webhook/query', QueryHandler),
+  (r'/webhook/worker', WebookParserWorkerHandler),
   (r'/.*', WebhookHandler)
 ]
 
