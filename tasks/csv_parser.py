@@ -96,7 +96,7 @@ class Parser(object):
           pre_index = index_of_hour
 
         # debug only
-        print index + 1, index_of_hour + 1, count
+        # print index + 1, index_of_hour + 1, count
 
         if (index + 1) > self.recipient_skip:
           new_recipient_data = RecipientData(parent=new_ip_warmup_schedule.key)
@@ -139,6 +139,8 @@ class Parser(object):
         save_queue, save_queue_index, error = self.save(new_ip_warmup_schedule, save_queue)
         if error:
           logging.error('ipwarmup error occured: %s' % error)
+
+    logging.info('parser end')
 
   def save(self, new_ip_warmup_schedule, save_queue):
     """
