@@ -15,7 +15,7 @@ from apiclient.http import MediaIoBaseDownload
 
 from utils import ipwarmup_day_sending_rate
 
-from models import RecipientData, IpWarmupSchedule, RecipientQueueData
+from models import RecipientData, Schedule, RecipientQueueData
 import settings
 
 
@@ -82,14 +82,17 @@ class ParseCSVHandler(webapp2.RequestHandler):
           _d = d.datetime + datetime.timedelta(hours=index_of_hour)
           _d = parse(_d.strftime('%Y-%m-%d %H:%M:%S'))
 
-          new_ip_warmup_schedule = IpWarmupSchedule()
+          new_ip_warmup_schedule = Schedule()
           new_ip_warmup_schedule.category = category
-          new_ip_warmup_schedule.schedule = _d.epoch()
-          new_ip_warmup_schedule.display_schedule = _d.naive()
-          new_ip_warmup_schedule.index_of_hour = (index_of_hour + 1)
+
+          new_ip_warmup_schedule.schedule_timestamp = _d.epoch()
+          new_ip_warmup_schedule.schedule_display = _d.naive()
+
+          new_ip_warmup_schedule.hour_delta = (index_of_hour + 1)
+          new_ip_warmup_schedule.hour_rate = '1/%dhrs' % how_many_hours_do_the_job
+
           new_ip_warmup_schedule.txt_object_name = txt_object_name
           new_ip_warmup_schedule.edm_object_name = edm_object_name
-          new_ip_warmup_schedule.how_many_hours_do_the_job = how_many_hours_do_the_job
           new_ip_warmup_schedule.put()
 
           pre_index = index_of_hour
@@ -115,7 +118,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
 
           count = count + 1
 
-        if count  > sending_rate[index_of_hour]:
+        if count > sending_rate[index_of_hour]:
           # update previous hour inner count
           new_ip_warmup_schedule.number_of_sending_mail = count - 1
           new_ip_warmup_schedule.put()
@@ -130,7 +133,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
 
       # update last inner count
       if new_ip_warmup_schedule:
-        new_ip_warmup_schedule.number_of_sending_mail = count - 1
+        new_ip_warmup_schedule.hour_capacity = count - 1
         new_ip_warmup_schedule.put()
 
       # check save_queue if new_recipient_data < 50

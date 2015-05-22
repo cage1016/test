@@ -1,3 +1,5 @@
+# coding=utf-8
+
 __author__ = 'cage'
 
 import datetime
@@ -8,32 +10,24 @@ import webapp2_extras.appengine.auth.models as auth_models
 from application import blob_files
 import application.settings as settings
 
-
-class User(auth_models.User):
-  account_enabled = ndb.BooleanProperty(default=False)
-  report_enabled = ndb.BooleanProperty(default=False)
-  description = ndb.TextProperty(default='')
-
-
 SIMPLE_TYPES = (int, long, float, bool, dict, basestring, list)
 
 
-class RecipientTxt(ndb.Model):
-  object_name = ndb.StringProperty()
-  display_name = ndb.StringProperty()
-  bucket = ndb.StringProperty()
-  size = ndb.IntegerProperty()
-  content_type = ndb.StringProperty()
-  created = ndb.DateTimeProperty(auto_now_add=True)
-
-  def to_dict(self):
+class AbstractNDBModel(ndb.Model):
+  def _to_dict(self, include=None, exclude=None):
     output = {}
 
     for key, prop in self._properties.iteritems():
       value = getattr(self, key)
 
       if value is None or isinstance(value, SIMPLE_TYPES):
-        output[key] = value
+        if isinstance(value, list):
+          if isinstance(value[0], ndb.Key):
+            output[key] = [v.urlsafe() for v in value]
+          else:
+            output[key] = value
+        else:
+          output[key] = value
       elif isinstance(value, datetime.date):
         # Convert date/datetime to MILLISECONDS-since-epoch (JS "new Date()").
         # ms = time.mktime(value.utctimetuple()) * 1000
@@ -44,11 +38,62 @@ class RecipientTxt(ndb.Model):
         output[key] = {'lat': value.lat, 'lon': value.lon}
       elif isinstance(value, ndb.Model):
         output[key] = self.to_dict(value)
+      elif isinstance(value, ndb.KeyProperty):
+        output[key] = self.to_dict(value)
       else:
         raise ValueError('cannot encode ' + repr(prop))
 
     output['urlsafe'] = self.key.urlsafe()
     return output
+
+
+class User(auth_models.User):
+  account_enabled = ndb.BooleanProperty(default=False)
+  report_enabled = ndb.BooleanProperty(default=False)
+  description = ndb.TextProperty(default='')
+
+
+class RecipientTxt(AbstractNDBModel):
+  object_name = ndb.StringProperty()
+  display_name = ndb.StringProperty()
+  bucket = ndb.StringProperty()
+  size = ndb.IntegerProperty()
+  content_type = ndb.StringProperty()
+  created = ndb.DateTimeProperty(auto_now_add=True)
+
+
+# should same as default/models.py
+class RecipientQueueData(ndb.Model):
+  data = ndb.JsonProperty(compressed=True)
+  created = ndb.DateTimeProperty(auto_now_add=True)
+
+
+# should same as default/models.py
+# updated 2015/5/21
+class Schedule(AbstractNDBModel):
+  category = ndb.StringProperty()
+
+  # ipwarmup, poc etc
+  type = ndb.StringProperty()
+
+  # 開始時間後第幾個小時. 1開始
+  hour_delta = ndb.IntegerProperty()
+  # 每個小時發的容量
+  hour_capacity = ndb.IntegerProperty()
+  # 預設是將每天的量分成24小時間來發，
+  # default: 1/24hrs, 如果前5個小時要發完 1/5hrs
+  hour_rate = ndb.StringProperty()
+
+  # timestamp: query property for cron job
+  schedule_timestamp = ndb.FloatProperty()
+  # schedule display for human
+  schedule_display = ndb.DateTimeProperty()
+
+  txt_object_name = ndb.StringProperty()
+  edm_object_name = ndb.StringProperty()
+
+  recipientQueue = ndb.KeyProperty(kind=RecipientQueueData, repeated=True)
+  created = ndb.DateTimeProperty(auto_now_add=True)
 
 
 class IPWarmup(ndb.Model):
