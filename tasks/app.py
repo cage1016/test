@@ -1,6 +1,7 @@
 import webapp2
 import logging
-from ipwarmup_handler import ParseCSVHandler
+from parser_handler import ParseCSVHandler
+from mailsend_handler import *
 
 
 class TasksHandler(webapp2.RequestHandler):
@@ -11,6 +12,11 @@ class TasksHandler(webapp2.RequestHandler):
 
 routes = [
   (r'/tasks/parsecsv', ParseCSVHandler),
+
+  (r'/tasks/schedule', ScheduleHandler),
+  (r'/tasks/mailer', MailerHandler),
+  (r'/tasks/worker', WorkHandler),
+
   (r'/.*', TasksHandler)
 ]
 

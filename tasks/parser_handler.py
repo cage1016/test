@@ -8,6 +8,11 @@ from csv_parser import Parser
 class ParseCSVHandler(webapp2.RequestHandler):
   def post(self):
     parameters = pickle.loads(self.request.get('parameters'))
+
+    subject = parameters.get('subject')
+    sender_name = parameters.get('sender_name')
+    sender_email = parameters.get('sender_email')
+
     category = parameters.get('category')
     type = parameters.get('type')
 
@@ -24,6 +29,6 @@ class ParseCSVHandler(webapp2.RequestHandler):
 
     logging.info(parameters)
 
-    parser = Parser(category, type, txt_object_name, edm_object_name, bucket_name, schedule_duration, ip_counts,
+    parser = Parser(subject, sender_name, sender_email, category, type, txt_object_name, edm_object_name, bucket_name, schedule_duration, ip_counts,
                     recipient_skip, hour_rate, start_time)
     parser.run()

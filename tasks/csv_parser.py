@@ -19,8 +19,12 @@ import settings
 
 class Parser(object):
   @settings.ValidateGCSWithCredential
-  def __init__(self, category, type, txt_object_name, edm_object_name, bucket_name, schedule_duration, ip_counts,
+  def __init__(self, subject, sender_name, sender_email, category, type, txt_object_name, edm_object_name, bucket_name,
+               schedule_duration, ip_counts,
                recipient_skip, hour_rate, start_time):
+    self.subject = subject
+    self.sender_name = sender_name
+    self.sender_email = sender_email
     self.category = category
     self.type = type
     self.txt_object_name = txt_object_name
@@ -43,7 +47,7 @@ class Parser(object):
     file_name = self.txt_object_name.replace('/', '_')
     fh = io.FileIO(file_name, mode='wb')
 
-    request = self.gcs_service.objects().get_media(bucket=self.bucket_name, object=self.txt_object_name)
+    request = self.gcs_service.objects().get_media(bucket=self.bucket_name, object=self.txt_object_name.encode('utf8'))
     downloader = MediaIoBaseDownload(fh, request, chunksize=settings.CHUNKSIZE)
 
     done = False
@@ -81,7 +85,11 @@ class Parser(object):
           _d = parse(_d.strftime('%Y-%m-%d %H:%M:%S'))
 
           new_ip_warmup_schedule = Schedule()
+          new_ip_warmup_schedule.subject = self.subject
+          new_ip_warmup_schedule.sender_name = self.sender_name
+          new_ip_warmup_schedule.sender_email = self.sender_email
           new_ip_warmup_schedule.category = self.category
+          new_ip_warmup_schedule.type = self.type
 
           new_ip_warmup_schedule.schedule_timestamp = _d.epoch()
           new_ip_warmup_schedule.schedule_display = _d.naive()
