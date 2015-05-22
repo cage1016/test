@@ -12,6 +12,15 @@ CHUNKSIZE = 2 * 1024 * 1024
 # ipwarmup schedule multiple put size
 QUEUE_CHUNKS_SIZE = 50
 
+# recipient upload bucket
+BUCKET = 'cheerspoint-recipient'
+
+SENDGRID = {
+  'USERNAME': 'kaichu',
+  'PASSWORD': '@75dkyz9n'
+}
+
+
 def ValidateGCSWithCredential(function):
   def _decorated(self, *args, **kwargs):
     credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.full_control')

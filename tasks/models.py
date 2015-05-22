@@ -18,6 +18,11 @@ class RecipientQueueData(ndb.Model):
 class Schedule(ndb.Model):
   category = ndb.StringProperty()
 
+  # subject
+  subject = ndb.StringProperty()
+  sender_name = ndb.StringProperty()
+  sender_email = ndb.StringProperty()
+
   # ipwarmup, poc etc
   type = ndb.StringProperty()
 
@@ -41,3 +46,31 @@ class Schedule(ndb.Model):
   created = ndb.DateTimeProperty(auto_now_add=True)
 
 
+class LogEmail(ndb.Model):
+  # 真正的 sender: 'sendgrid' or google service account
+  sender = ndb.StringProperty(required=True)
+  category = ndb.StringProperty()
+
+  sender_name = ndb.StringProperty()
+  sender_email = ndb.StringProperty()
+
+  to = ndb.StringProperty(required=True)
+  subject = ndb.StringProperty(required=True)
+  body = ndb.TextProperty()
+
+  # inherit from schedule
+  schedule_timestamp = ndb.FloatProperty()
+  schedule_display = ndb.DateTimeProperty()
+
+  when_timestamp = ndb.FloatProperty()
+  when_display = ndb.DateTimeProperty()
+
+  def get_id(self):
+    return self._key.id()
+
+
+class LogSendEmailFail(LogEmail):
+  reason = ndb.StringProperty(required=True)
+
+  def get_id(self):
+    return self._key.id()
