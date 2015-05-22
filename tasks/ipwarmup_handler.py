@@ -24,15 +24,19 @@ class ParseCSVHandler(webapp2.RequestHandler):
   def post(self):
 
     parameters = pickle.loads(self.request.get('parameters'))
+    category = parameters.get('category')
+    type = parameters.get('type')
+
     txt_object_name = parameters.get('txt_object_name')
     edm_object_name = parameters.get('edm_object_name')
     bucket_name = parameters.get('bucket_name')
-    ip_warmup_schedule_days = int(parameters.get('ip_warmup_schedule_days'))
+
+    schedule_duration = int(parameters.get('schedule_duration'))
     ip_counts = int(parameters.get('ip_counts'))
-    category = parameters.get('category')
+
     recipient_skip = int(parameters.get('recipient_skip'))
+    hour_rate = int(parameters.get('hour_rate'))
     start_time = parameters.get('start_time')
-    how_many_hours_do_the_job = int(parameters.get('how_many_hours_do_the_job'))
 
     logging.info(parameters)
 
@@ -57,7 +61,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
 
     # sending rate
     # [91,83..]
-    sending_rate = ipwarmup_day_sending_rate(ip_warmup_schedule_days, ip_counts, how_many_hours_do_the_job)
+    sending_rate = ipwarmup_day_sending_rate(schedule_duration, ip_counts, hour_rate)
     logging.info(sending_rate)
 
     # handle csv parse
@@ -89,7 +93,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
           new_ip_warmup_schedule.schedule_display = _d.naive()
 
           new_ip_warmup_schedule.hour_delta = (index_of_hour + 1)
-          new_ip_warmup_schedule.hour_rate = '1/%dhrs' % how_many_hours_do_the_job
+          new_ip_warmup_schedule.hour_rate = '1/%dhrs' % hour_rate
 
           new_ip_warmup_schedule.txt_object_name = txt_object_name
           new_ip_warmup_schedule.edm_object_name = edm_object_name

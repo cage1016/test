@@ -21,7 +21,7 @@ def each_hour_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB):
   [91, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83]
 
   """
-  daily_quota = 100 * ip_count
+  daily_quota = 1000 * ip_count
   quota = [0] * 24
 
   hourly_quota = int(math.pow(2, number_of_day) * daily_quota)
@@ -59,7 +59,3 @@ def ipwarmup_day_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24):
                                                                                                              ip_count,
                                                                                                              HOW_MANY_HOURS_DO_THE_JOB)
     return resp
-
-a = ipwarmup_day_sending_rate(1,1)
-print a
-print sum(a)

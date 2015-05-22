@@ -1,8 +1,9 @@
 queue:
 
 - name: mailer
-  rate: 1/s
-
+  rate: 5/s
+  bucket_size: 10
+  max_concurrent_requests: 10
 
 - name: worker
   rate: 50/s
@@ -15,6 +16,7 @@ queue:
 - name: recipient-delete
   rate: 1/s
 
+- name: recipient-queue-delete
 - name: recipient-queue-delete
   rate: 1/s
 

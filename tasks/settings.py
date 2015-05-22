@@ -6,8 +6,11 @@ from oauth2client.appengine import AppAssertionCredentials
 
 DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
 
+# google cloud storage download chucks size
 CHUNKSIZE = 2 * 1024 * 1024
 
+# ipwarmup schedule multiple put size
+QUEUE_CHUNKS_SIZE = 50
 
 def ValidateGCSWithCredential(function):
   def _decorated(self, *args, **kwargs):
