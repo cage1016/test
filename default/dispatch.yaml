@@ -10,6 +10,9 @@ dispatch:
   - url: "*/tasks/*"
     module: tasks
 
+  - url: "*/webhook/*"
+    module: webhook
+
   - url: "*/google40fc41ccc276e5c5.html"
     module: ownership
 
