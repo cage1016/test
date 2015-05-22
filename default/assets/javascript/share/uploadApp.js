@@ -10,7 +10,7 @@
 var React = require('react');
 var $ = require('jquery');
 var MediaUploader = require('./upload');
-var Spinner = require('../vitullo-spinner.jsx');
+var Spinner = require('./vitullo-spinner.jsx');
 
 
 var RecipientList = React.createClass({
