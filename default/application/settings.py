@@ -31,6 +31,11 @@ ADMINS = [
   'simonsu@mitac.com.tw'
 ]
 
+SENDGRID = {
+  'USERNAME': 'kaichu',
+  'PASSWORD': '@75dkyz9n'
+}
+
 SITE_NAME = 'cheerspoint'
 BASIC_SITE_URL = 'https://mitac-cheerspoint-v20150518.appspot.com/'
 SITE_OWNER = 'KAI CHU CHUNG'

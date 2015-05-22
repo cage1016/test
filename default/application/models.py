@@ -7,7 +7,6 @@ import datetime
 from google.appengine.ext import ndb
 import webapp2_extras.appengine.auth.models as auth_models
 
-from application import blob_files
 import application.settings as settings
 
 SIMPLE_TYPES = (int, long, float, bool, dict, basestring, list)
@@ -62,6 +61,10 @@ class RecipientTxt(AbstractNDBModel):
   created = ndb.DateTimeProperty(auto_now_add=True)
 
 
+class RecipientData(ndb.Expando):
+  pass
+
+
 # should same as default/models.py
 class RecipientQueueData(ndb.Model):
   data = ndb.JsonProperty(compressed=True)
@@ -72,6 +75,11 @@ class RecipientQueueData(ndb.Model):
 # updated 2015/5/21
 class Schedule(AbstractNDBModel):
   category = ndb.StringProperty()
+
+  # subject
+  subject = ndb.StringProperty()
+  sender_name = ndb.StringProperty()
+  sender_email = ndb.StringProperty()
 
   # ipwarmup, poc etc
   type = ndb.StringProperty()
@@ -94,95 +102,6 @@ class Schedule(AbstractNDBModel):
 
   recipientQueue = ndb.KeyProperty(kind=RecipientQueueData, repeated=True)
   created = ndb.DateTimeProperty(auto_now_add=True)
-
-
-class IPWarmup(ndb.Model):
-  count = ndb.IntegerProperty(default=0)
-  email = ndb.StringProperty()
-
-
-class RecipientQueueData(ndb.Model):
-  """
-  ex json:{
-      email: xxx@gmail.com
-      name: cage.chung
-      type: to/cc/bcc
-  }
-  """
-  data = ndb.JsonProperty(compressed=True)
-  created = ndb.DateTimeProperty(auto_now_add=True)
-
-
-class RecipientData(ndb.Expando):
-  pass
-
-
-class Recipient(ndb.Model):
-  name = ndb.StringProperty(required=True, default='')
-  count = ndb.IntegerProperty(required=True, default=0)
-  created = ndb.DateTimeProperty(auto_now_add=True)
-  status = ndb.StringProperty()
-
-  @classmethod
-  def query_recipient(cls, ancestor_key):
-    return cls.query(ancestor=ancestor_key).order(-cls.created)
-
-
-class ScheduleEmail(ndb.Model):
-  created = ndb.DateTimeProperty(auto_now_add=True)
-  subject = ndb.StringProperty()
-  toname = ndb.StringProperty()
-  toemail = ndb.StringProperty()
-  category = ndb.StringProperty()
-  schedule = ndb.FloatProperty()
-  recipients_name = ndb.StringProperty()
-  recipients_count = ndb.IntegerProperty(default=0)
-  recipients = ndb.KeyProperty(kind=RecipientQueueData, repeated=True)
-  template = ndb.KeyProperty(kind=blob_files.BlobFiles)
-  template_name = ndb.StringProperty()
-  status = ndb.StringProperty(default='')
-  success_count = ndb.IntegerProperty(default=0)
-  error_count = ndb.IntegerProperty(default=0)
-
-
-  @classmethod
-  def query_sendmail(cls, ancestor_key):
-    return cls.query(ancestor=ancestor_key).order(-cls.created)
-
-
-class LogEmail(ndb.Model):
-  sender = ndb.StringProperty(required=True)
-  category = ndb.StringProperty()
-  toname = ndb.StringProperty()
-  toemail = ndb.StringProperty()
-  to = ndb.StringProperty(required=True)
-  subject = ndb.StringProperty(required=True)
-  body = ndb.TextProperty()
-  schedule = ndb.FloatProperty()
-  when = ndb.DateTimeProperty()
-
-  def get_id(self):
-    return self._key.id()
-
-
-class LogSendEmailFail(ndb.Model):
-  sender = ndb.StringProperty(required=True)
-  category = ndb.StringProperty()
-  toname = ndb.StringProperty()
-  toemail = ndb.StringProperty()
-  to = ndb.StringProperty(required=True)
-  subject = ndb.StringProperty(required=True)
-  body = ndb.TextProperty()
-  schedule = ndb.FloatProperty()
-  when = ndb.DateTimeProperty()
-  reason = ndb.StringProperty(required=True)
-
-  def get_id(self):
-    return self._key.id()
-
-
-class POCAccount(ndb.Model):
-  email = ndb.StringProperty()
 
 
 class Site(ndb.Model):

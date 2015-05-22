@@ -25,12 +25,8 @@
       {% if user %}
         <ul class="nav navbar-nav">
           {% if user.account_enabled %}
-            <li {% if upath_info == '/sendmail' %}class="active"{% endif %}><a href="/sendmail">Send
+            <li {% if upath_info == '/mail' %}class="active"{% endif %}><a href="/mail">Send
               Email</a>
-            </li>
-            <li {% if upath_info == '/recipients' %}class="active"{% endif %}><a
-                href="/recipients">Recipients</a></li>
-            <li {% if upath_info == '/template' %}class="active"{% endif %}><a href="/template">Template</a>
             </li>
           {% endif %}
           {% if user.report_enabled %}
@@ -59,6 +55,7 @@
             <ul class="dropdown-menu" role="menu">
               {% if user.is_admin %}
                 <li><a href="/account_management">Account Management</a></li>
+                <li><a href="/ipwarmup">IP Warmup</a></li>
                 <li class="divider"></li>
               {% endif %}
               <li><a href="/logout">Logout</a></li>
@@ -88,7 +85,7 @@
 
 
 <!-- inject:js -->
-<script src="/public/javascript/vendor.js"></script>
+<script src="/public/javascript/vendors.js"></script>
 <!-- endinject -->
 
 <script src="/public/javascript/bundle.js"></script>

@@ -9,4 +9,3 @@ class SendMailHandler(BaseRequestHandler):
     params = {}
 
     self.render('mail/mail_list.html', **params)
-

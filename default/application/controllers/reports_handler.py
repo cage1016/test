@@ -8,7 +8,7 @@ from application.controllers.base import BaseRequestHandler, my_login_required, 
 from google.appengine.api import urlfetch
 import urllib
 
-import application.config as config
+import application.settings as settings
 
 import cStringIO
 from application import csv_writer
@@ -16,8 +16,8 @@ from application import csv_writer
 URL = 'https://sendgrid.com/api/'
 
 SIMPLE_AUTHORIZTION = {
-  'api_user': config.SENDGRID['USERNAME'],
-  'api_key': config.SENDGRID['PASSWORD']
+  'api_user': settings.SENDGRID['USERNAME'],
+  'api_key': settings.SENDGRID['PASSWORD']
 }
 
 
