@@ -10,6 +10,7 @@
 var React = require('react');
 var $ = require('jquery');
 var Spinner = require('./vitullo-spinner.jsx');
+var api = require('./api');
 
 var listIPWarmupScheduleApp = React.createClass({
 
@@ -27,9 +28,10 @@ var listIPWarmupScheduleApp = React.createClass({
 
   fetchRecipient: function () {
     this.startSpinner('spinner');
-    $.get('/api/ipwarmup/joblist', function (data) {
+
+    api.getScheduleList().done(function (result) {
       this.stopSpinner('spinner');
-      this.setState({'jobs': data});
+      this.setState({'jobs': result.data});
     }.bind(this));
   },
 
@@ -73,24 +75,29 @@ var listIPWarmupScheduleApp = React.createClass({
     }
 
     return (
-      <table className="table">
-        <thead>
-          <tr>
-            <th>subject</th>
-            <th>Category</th>
-            <th>Schedule</th>
-            <th>Delta</th>
-            <th>Capacity</th>
-            <th>Rate</th>
-            <th>Recipient</th>
-            <th>Created</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+      <div>
+        <Spinner loaded={this.getSpinner('spinner')} message="" spinWait={0} msgWait={0}>
+          <h1></h1>
+        </Spinner>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>subject</th>
+              <th>Category</th>
+              <th>Schedule</th>
+              <th>Delta</th>
+              <th>Capacity</th>
+              <th>Rate</th>
+              <th>Recipient</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
         {jobs}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     );
   },
 
