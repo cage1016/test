@@ -127,9 +127,9 @@ var uploadApp = React.createClass({
 
   fetchResource: function () {
     this.startSpinner('spinner');
-    api.getResourceList().done(function (data) {
+    api.getResourceList().done(function (result) {
       this.stopSpinner('spinner');
-      this.setState({'resources': data.resources || []});
+      this.setState({'resources': result.data || []});
     }.bind(this));
   },
 
