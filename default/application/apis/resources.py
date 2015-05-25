@@ -26,10 +26,10 @@ PER_PAGE = 20
 
 @cheerspoint_api.api_class(resource_name='resources')
 class ResourceApi(remote.Service):
-  def query(self, recipient_txt, cursor, forward, per_page, **params):
+  def query(self, resource, cursor, forward, per_page, **params):
 
     if forward:
-      recipient_txt, next_cursor, more = recipient_txt.order(-Resource.created).fetch_page(per_page,
+      resource, next_cursor, more = resource.order(-Resource.created).fetch_page(per_page,
                                                                                                start_cursor=cursor)
 
       if next_cursor and more:
@@ -41,7 +41,7 @@ class ResourceApi(remote.Service):
         params.update(pre_cursor=pre_cursor)
 
     else:
-      recipient_txt, next_cursor, more = recipient_txt.order(Resource.created).fetch_page(per_page,
+      resource, next_cursor, more = resource.order(Resource.created).fetch_page(per_page,
                                                                                               start_cursor=cursor)
 
       if next_cursor and more:
@@ -51,7 +51,7 @@ class ResourceApi(remote.Service):
       next_cursor = cursor.reversed().urlsafe()
       params.update(next_cursor=next_cursor)
 
-    params.update(resources=[w.to_response_message() for w in recipient_txt])
+    params.update(resources=[w.to_response_message() for w in resource])
 
     return params
 
@@ -98,15 +98,15 @@ class ResourceApi(remote.Service):
     self.check_authenciation()
 
     id = '/'.join(request.id.split('/')[:-1])
-    recipient_text = Resource.get_or_insert(id)
-    recipient_text.object_name = request.name
-    recipient_text.display_name = request.name.split('/')[-1]
-    recipient_text.bucket = request.bucket
-    recipient_text.size = int(request.size)
-    recipient_text.content_type = request.contentType
-    recipient_text.put()
+    reource = Resource.get_or_insert(id)
+    reource.object_name = request.name
+    reource.display_name = request.name.split('/')[-1]
+    reource.bucket = request.bucket
+    reource.size = int(request.size)
+    reource.content_type = request.contentType
+    reource.put()
 
-    return recipient_text.to_response_message()
+    return reource.to_response_message()
 
   @endpoints.method(RESOURCES_DELETE_RESOURCE,
                     ResourcesDeleteResponse,
@@ -116,23 +116,23 @@ class ResourceApi(remote.Service):
   def delete(self, request):
     self.check_authenciation()
 
-    recipient_txt = ndb.Key(urlsafe=request.id).get()
-    if recipient_txt:
+    resource = ndb.Key(urlsafe=request.id).get()
+    if resource:
 
       try:
-        recipient_txt.key.delete()
+        resource.key.delete()
 
         if not settings.DEBUG:
           taskqueue.add(url='/tasks/delete_resources',
                         params={
-                          'object_name': recipient_txt.object_name,
-                          'bucket_name': recipient_txt.bucket
+                          'object_name': resource.object_name,
+                          'bucket_name': resource.bucket
                         },
                         queue_name='resource-delete')
 
         else:
           logging.info(
-            '_ah/spi is not a dispatchable path, task queue:delete_resources won\'t be executed at development env. ')
+            '/_ah/spi is not a dispatchable path, task queue:delete_resources won\'t be executed at development env. ')
 
       except taskqueue.Error, error:
         logging.error('An error occurred in endpoints APIs: %s' % error)
