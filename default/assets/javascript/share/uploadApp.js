@@ -11,18 +11,18 @@ var React = require('react');
 var $ = require('jquery');
 var MediaUploader = require('./upload');
 var Spinner = require('./vitullo-spinner.jsx');
-
+var api = require('./api');
 
 var RecipientList = React.createClass({
 
   render: function () {
-    var recipients = [];
+    var resources = [];
 
-    if (this.props.recipient.recipient) {
-      for (var i = 0, j = this.props.recipient.recipient.length; i < j; i++) {
-        var r = this.props.recipient.recipient[i];
+    if (this.props.resources) {
+      for (var i = 0, j = this.props.resources.length; i < j; i++) {
+        var r = this.props.resources[i];
 
-        recipients.push(
+        resources.push(
           <tr>
             <td>{r.display_name}</td>
             <td>{r.size}</td>
@@ -48,9 +48,59 @@ var RecipientList = React.createClass({
           </tr>
         </thead>
         <tbody>
-        {recipients}
+        {resources}
         </tbody>
       </table>
+    );
+  }
+});
+
+
+var Progress = React.createClass({
+  getInitialState: function () {
+    return {
+      progress: 0,
+      complete: true
+    };
+  },
+
+  componentWillReceiveProps: function (nextProps) {
+
+    if (nextProps.progress > this.props.progress) {
+      this.setState({'progress': nextProps.progress});
+    }
+    if (nextProps.progress === 0) {
+      this.setState({'progress': 0});
+    }
+
+    if (nextProps.complete === true) {
+      var self = this;
+      setTimeout(
+        function () {
+          self.setState({'complete': nextProps.complete});
+        },
+        3500
+      );
+    } else {
+      this.setState({'complete': nextProps.complete});
+    }
+  },
+
+
+  render: function () {
+    var progressStyle = {
+      'visibility': this.state.complete ? 'hidden' : 'visible'
+    };
+    var progressBarStyle = {
+      width: this.state.progress + "%"
+    };
+
+    return (
+      <div className="progress" style={progressStyle} ref="progress">
+        <div className="progress-bar" role="progressbar" aria-valuenow={this.state.progress.toFixed(2)} aria-valuemin="0" aria-valuemax="100" style={progressBarStyle}>
+            {this.state.progress.toFixed(2)}%
+        </div>
+      </div>
     );
   }
 });
@@ -69,29 +119,46 @@ var uploadApp = React.createClass({
       response: '',
       access_token: '',
       progress: 0,
-      baseUrl: 'https://www.googleapis.com/upload/storage/v1/b/cheerspoint-recipient/o',
-      recipient: []
+      complete: true,
+      baseUrl: 'https://www.googleapis.com/upload/storage/v1/b/' + this.props.bucketName + '/o',
+      resources: []
     };
   },
 
-  fetchToken: function () {
-    $.get('/api/me', function (token) {
-      this.setState({'access_token': token});
-    }.bind(this));
-  },
-
-  fetchRecipient: function () {
-    $.get('/api/recipient', function (data) {
-      this.stopSpinner('spinner');
-      this.setState({'recipient': data});
-    }.bind(this));
-  },
-
-  updateRecipient: function (data) {
+  fetchResource: function () {
     this.startSpinner('spinner');
-    $.post('/api/recipient/insert', {data: data}, function (result) {
-      console.log(result);
-      this.fetchRecipient();
+    api.getResourceList().done(function (data) {
+      this.stopSpinner('spinner');
+      this.setState({'resources': data.resources || []});
+    }.bind(this));
+  },
+
+  insertResource: function (data) {
+    this.startSpinner('spinner');
+    api.inertResource(data).done(function (resource) {
+      this.stopSpinner('spinner');
+
+      var o = this.state.resources;
+      o.push(resource);
+      this.setState({'resources': o});
+
+    }.bind(this));
+  },
+
+  deleteResource: function (id) {
+    this.startSpinner('spinner');
+    api.deleteResource(id).done(function (result) {
+      this.stopSpinner('spinner');
+
+      var o = this.state.resources;
+      var index = o.map(function (x) {
+        return x.urlsafe;
+      }).indexOf(result.urlsafe);
+      if (index > -1) {
+        o.splice(index, 1);
+        this.setState({'resources': o});
+      }
+
     }.bind(this));
   },
 
@@ -100,8 +167,7 @@ var uploadApp = React.createClass({
   },
 
   componentDidMount: function () {
-    this.fetchToken();
-    this.fetchRecipient();
+    this.fetchResource();
 
     var fileNode = this.refs.file.getDOMNode();
     fileNode.addEventListener('change', this.handleChange, false);
@@ -109,6 +175,7 @@ var uploadApp = React.createClass({
 
   handleChange: function (evt) {
     this.startSpinner('spinner');
+    this.setState({progress: 0});
     var files = this.refs.file.getDOMNode().files;
     for (var i = 0, j = files.length; i < j; i++) {
       //this.uploadFile(files[i]);
@@ -122,6 +189,7 @@ var uploadApp = React.createClass({
       position: 'absolute'
     };
 
+
     return (
       <div>
         <Spinner loaded={this.getSpinner('spinner')} message="" spinWait={0} msgWait={0}>
@@ -129,10 +197,9 @@ var uploadApp = React.createClass({
         </Spinner>
         <div id="drop_zone" onClick={this._onClick} onDragOver={this._onDragover} onDrop={this._onDrop}>Drop files here or click to select files.</div>
         <input style={inputStyle} type="file" ref="file"/>
-        <div>{this.state.response}</div>
-        <div>{this.state.progress}</div>
+        <Progress progress={this.state.progress} complete={this.state.complete}/>
         <div>
-          <RecipientList recipient={this.state.recipient} delete={this._onDelete}/>
+          <RecipientList resources={this.state.resources} delete={this._onDelete}/>
         </div>
       </div>
     );
@@ -150,6 +217,7 @@ var uploadApp = React.createClass({
     var files = evt.dataTransfer.files; // FileList object.
 
     this.startSpinner('spinner');
+    this.setState({progress: 0});
     for (var i = 0, j = files.length; i < j; i++) {
       //this.uploadFile(files[i]);
       this.resumableUpload(files[i]);
@@ -187,32 +255,30 @@ var uploadApp = React.createClass({
   },
 
   resumableUpload: function (fileData) {
-    var that = this;
+    this.setState({'complete': false});
     var uploader = new MediaUploader({
       file: fileData,
-      token: this.state.access_token,
+      token: api.getToken(),
       params: {
-        name: 'ipwarmup/' + fileData.name
+        name: this.props.objectNamePerfix + '/' + api.getEmail() + '/' + fileData.name
       },
       baseUrl: this.state.baseUrl,
       onComplete: function (data) {
-        console.log(data);
-        that.updateRecipient(data);
-        that.stopSpinner('spinner');
-      },
+        this.stopSpinner('spinner');
+        this.setState({'complete': true});
+        this.insertResource(data);
+      }.bind(this),
       onProgress: function (data) {
         var progress = (data.loaded / data.total) * 100;
-        that.setState({progress: progress.toFixed(2) + '%'});
-      }
+        this.setState({'progress': progress});
+      }.bind(this)
     });
 
     uploader.upload();
   },
 
   _onDelete: function (r) {
-    $.post('/api/recipient/delete', {urlsafe: r.urlsafe}, function () {
-      this.fetchRecipient();
-    }.bind(this));
+    this.deleteResource(r.urlsafe);
   }
 });
 
