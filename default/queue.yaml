@@ -13,7 +13,7 @@ queue:
     task_retry_limit: 3
     task_age_limit: 20m
 
-- name: recipient-delete
+- name: resource-delete
   rate: 1/s
 
 - name: recipient-queue-delete

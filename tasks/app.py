@@ -2,6 +2,7 @@ import webapp2
 import logging
 from parser_handler import ParseCSVHandler
 from mailsend_handler import *
+from delete_handler import *
 
 
 class TasksHandler(webapp2.RequestHandler):
@@ -16,6 +17,8 @@ routes = [
   (r'/tasks/schedule', ScheduleHandler),
   (r'/tasks/mailer', MailerHandler),
   (r'/tasks/worker', WorkHandler),
+
+  (r'/tasks/delete_resources', GCSResourcesDeleteHandler),
 
   (r'/.*', TasksHandler)
 ]
