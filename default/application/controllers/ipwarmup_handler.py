@@ -89,13 +89,6 @@ class IPWamrupAddJobHandler(AbstractHandler):
     self.render_response('ok')
 
 
-class IPWamrupJobListHandler(AbstractHandler):
-  def get(self):
-    ip_warmup_schedule = Schedule.query().order(Schedule.created).fetch()
-
-    self.render_response([x._to_dict() for x in ip_warmup_schedule])
-
-
 class DumpHandler(AbstractHandler):
   def get(self):
 
@@ -121,8 +114,6 @@ ip_warmup_route = [
   (r'/ipwarmup/resource', IPWamrupResourceHandler),
 
   (r'/api/ipwarmup/addjob', IPWamrupAddJobHandler),
-  (r'/api/ipwarmup/joblist', IPWamrupJobListHandler),
-
 
   (r'/api/dump', DumpHandler)
 ]

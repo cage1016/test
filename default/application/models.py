@@ -8,12 +8,13 @@ from google.appengine.ext import ndb
 import webapp2_extras.appengine.auth.models as auth_models
 
 import application.settings as settings
-from application.apis.resources_messages import ResourcesResponseMessage
 
 SIMPLE_TYPES = (int, long, float, bool, dict, basestring, list)
 
 
-class AbstractNDBModel(ndb.Model):
+class temporary(ndb.Model):
+  pass
+
   def _to_dict(self, include=None, exclude=None):
     output = {}
 
@@ -47,6 +48,37 @@ class AbstractNDBModel(ndb.Model):
     return output
 
 
+class AbstractNDBModel(ndb.Model):
+  @classmethod
+  def query_by_page(cls, cursor, forward, per_page, **params):
+    if forward:
+      data, next_cursor, more = cls.query().order(-cls.created).fetch_page(per_page,
+                                                                           start_cursor=cursor)
+
+      if next_cursor and more:
+        next_cursor = next_cursor.urlsafe()
+        params.update(next_cursor=next_cursor)
+
+      if cursor:
+        pre_cursor = cursor.reversed().urlsafe()
+        params.update(pre_cursor=pre_cursor)
+
+    else:
+      data, next_cursor, more = cls.query().order(cls.created).fetch_page(per_page,
+                                                                          start_cursor=cursor)
+
+      if next_cursor and more:
+        pre_cursor = next_cursor.urlsafe()
+        params.update(pre_cursor=pre_cursor)
+
+      next_cursor = cursor.reversed().urlsafe()
+      params.update(next_cursor=next_cursor)
+
+    params.update(data=data)
+
+    return params
+
+
 class User(auth_models.User):
   account_enabled = ndb.BooleanProperty(default=False)
   report_enabled = ndb.BooleanProperty(default=False)
@@ -60,18 +92,6 @@ class Resource(AbstractNDBModel):
   size = ndb.IntegerProperty()
   content_type = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
-
-  def to_response_message(self):
-    rrm = ResourcesResponseMessage()
-    rrm.object_name = self.object_name
-    rrm.display_name = self.display_name
-    rrm.bucket = self.bucket
-    rrm.size = self.size
-    rrm.content_type = self.content_type
-    rrm.created = self.created.strftime('%Y-%m-%d %H:%M:%S')
-    rrm.urlsafe = self.key.urlsafe()
-
-    return rrm
 
 
 class RecipientData(ndb.Expando):

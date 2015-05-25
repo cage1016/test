@@ -26,35 +26,6 @@ PER_PAGE = 20
 
 @cheerspoint_api.api_class(resource_name='resources')
 class ResourceApi(remote.Service):
-  def query(self, resource, cursor, forward, per_page, **params):
-
-    if forward:
-      resource, next_cursor, more = resource.order(-Resource.created).fetch_page(per_page,
-                                                                                               start_cursor=cursor)
-
-      if next_cursor and more:
-        next_cursor = next_cursor.urlsafe()
-        params.update(next_cursor=next_cursor)
-
-      if cursor:
-        pre_cursor = cursor.reversed().urlsafe()
-        params.update(pre_cursor=pre_cursor)
-
-    else:
-      resource, next_cursor, more = resource.order(Resource.created).fetch_page(per_page,
-                                                                                              start_cursor=cursor)
-
-      if next_cursor and more:
-        pre_cursor = next_cursor.urlsafe()
-        params.update(pre_cursor=pre_cursor)
-
-      next_cursor = cursor.reversed().urlsafe()
-      params.update(next_cursor=next_cursor)
-
-    params.update(resources=[w.to_response_message() for w in resource])
-
-    return params
-
   def check_authenciation(self):
     current_user = endpoints.get_current_user()
     if raise_unauthorized and current_user is None:
@@ -81,10 +52,24 @@ class ResourceApi(remote.Service):
     except BadValueError, e:
       resp.msg = e.message
 
-    query = self.query(Resource.query(), cursor, forward, per_page)
-    resp.resources = query.get('resources')
+    query = Resource.query_by_page(cursor, forward, per_page)
     resp.next_cursor = query.get('next_cursor')
     resp.pre_cursor = query.get('pre_cursor')
+
+    resources = []
+    for model in query.get('data'):
+      resource = ResourcesResponseMessage(
+        object_name=model.object_name,
+        display_name=model.display_name,
+        bucket=model.bucket,
+        size=model.size,
+        content_type=model.content_type,
+        created=model.created.strftime('%Y-%m-%d %H:%M:%S'),
+        urlsafe=model.key.urlsafe()
+      )
+      resources.append(resource)
+
+    resp.data = resources
 
     return resp
 
@@ -98,15 +83,23 @@ class ResourceApi(remote.Service):
     self.check_authenciation()
 
     id = '/'.join(request.id.split('/')[:-1])
-    reource = Resource.get_or_insert(id)
-    reource.object_name = request.name
-    reource.display_name = request.name.split('/')[-1]
-    reource.bucket = request.bucket
-    reource.size = int(request.size)
-    reource.content_type = request.contentType
-    reource.put()
+    resource = Resource.get_or_insert(id)
+    resource.object_name = request.name
+    resource.display_name = request.name.split('/')[-1]
+    resource.bucket = request.bucket
+    resource.size = int(request.size)
+    resource.content_type = request.contentType
+    resource.put()
 
-    return reource.to_response_message()
+    return ResourcesResponseMessage(
+      object_name=resource.object_name,
+      display_name=resource.display_name,
+      bucket=resource.bucket,
+      size=resource.size,
+      content_type=resource.content_type,
+      created=resource.created.strftime('%Y-%m-%d %H:%M:%S'),
+      urlsafe=resource.key.urlsafe()
+    )
 
   @endpoints.method(RESOURCES_DELETE_RESOURCE,
                     ResourcesDeleteResponse,

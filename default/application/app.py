@@ -3,7 +3,7 @@
 
 import webapp2
 import endpoints
-from application.apis import resources
+from application.apis import resources, schedules
 
 from application.controllers.base import *
 
@@ -66,5 +66,6 @@ router.error_handlers[403] = Webapp2HandlerAdapter(Handle403)
 # router.error_handlers[500] = Webapp2HandlerAdapter(Handle500)
 
 API = endpoints.api_server([
-  resources.ResourceApi
+  resources.ResourceApi,
+  schedules.ScheduleApi
 ])

@@ -38,7 +38,7 @@ class ResourcesDeleteResponse(messages.Message):
 class ResourcesListResponse(messages.Message):
   pre_cursor = messages.StringField(1)
   next_cursor = messages.StringField(2)
-  resources = messages.MessageField(ResourcesResponseMessage, 3, repeated=True)
+  data = messages.MessageField(ResourcesResponseMessage, 3, repeated=True)
 
 
 RESOURCES_LIST_RESOURCE = endpoints.ResourceContainer(
