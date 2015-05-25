@@ -138,3 +138,8 @@ tr.reactable-filterer td {
     font: 20pt bold 'Helvetica';
     color: #bbb;
 }
+
+#drop_zone:hover{
+    color: #aaa;
+    cursor: pointer;
+}

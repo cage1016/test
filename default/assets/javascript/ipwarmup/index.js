@@ -16,9 +16,9 @@ module.exports = {
   init: function (action) {
 
     switch (action) {
-      case 'recipient':
+      case 'resource':
 
-        React.render(<UploadApp insertUrl={"/api/recipient/insert"}/>,
+        React.render(<UploadApp bucketName={'cheerspoint-recipient'} objectNamePerfix={'ipwarmup'}/>,
           document.getElementById('uploadApp')
         );
 

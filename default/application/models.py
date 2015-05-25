@@ -8,6 +8,7 @@ from google.appengine.ext import ndb
 import webapp2_extras.appengine.auth.models as auth_models
 
 import application.settings as settings
+from application.apis.resources_messages import ResourcesResponseMessage
 
 SIMPLE_TYPES = (int, long, float, bool, dict, basestring, list)
 
@@ -52,13 +53,25 @@ class User(auth_models.User):
   description = ndb.TextProperty(default='')
 
 
-class RecipientTxt(AbstractNDBModel):
+class Resource(AbstractNDBModel):
   object_name = ndb.StringProperty()
   display_name = ndb.StringProperty()
   bucket = ndb.StringProperty()
   size = ndb.IntegerProperty()
   content_type = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
+
+  def to_response_message(self):
+    rrm = ResourcesResponseMessage()
+    rrm.object_name = self.object_name
+    rrm.display_name = self.display_name
+    rrm.bucket = self.bucket
+    rrm.size = self.size
+    rrm.content_type = self.content_type
+    rrm.created = self.created.strftime('%Y-%m-%d %H:%M:%S')
+    rrm.urlsafe = self.key.urlsafe()
+
+    return rrm
 
 
 class RecipientData(ndb.Expando):
