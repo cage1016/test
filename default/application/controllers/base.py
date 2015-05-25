@@ -7,6 +7,7 @@ import webapp2
 import pickle
 import httplib2
 import logging
+import json
 
 from webapp2_extras import sessions, jinja2
 from jinja2.runtime import TemplateNotFound
@@ -45,7 +46,7 @@ urlfetch.set_default_fetch_deadline(45)
 client_type, client_info = loadfile(settings.CLIENT_SECRETS)
 FLOW = flow_from_clientsecrets(
   settings.CLIENT_SECRETS,
-  scope=['https://www.googleapis.com/auth/userinfo.email','https://www.googleapis.com/auth/devstorage.read_write'],
+  scope=['https://www.googleapis.com/auth/userinfo.email', 'https://www.googleapis.com/auth/devstorage.read_write'],
   redirect_uri=client_info['redirect_uris'][0], )
 FLOW.params.update({'access_type': 'offline'})
 FLOW.params.update({'approval_prompt': 'force'})
@@ -363,3 +364,49 @@ def ValidateGCSWithCredential(function):
     return function(self, *args, **kwargs)
 
   return _decorated
+
+
+def ValidateCredential(function):
+  """
+  validate Credential for endpoint call
+  :param function:
+  :return:
+  """
+
+  def _decorated(self, *args, **kwargs):
+    if 'credential' in self.session:
+      # Load credential from session data.
+      credential = pickle.loads(self.session.get('credential'))
+      http = httplib2.Http()
+      if credential.access_token_expired:
+        try:
+          credential.refresh(http)
+        except AccessTokenRefreshError:
+          # When credential is invalid and refreshing fails, it returns 401.
+          self.response.set_status(401)
+          self.response.write('Unauthorized Access - Credential refresh failed')
+          self.LogOut()
+          return
+        else:
+          # Saves refreshed credential back to session data.
+          self.session['credential'] = pickle.dumps(credential)
+
+      self.access_token = credential.access_token
+      return function(self, *args, **kwargs)
+    else:
+      self.response.set_status(401)
+      self.response.write('Unauthorized Access - User not logged in')
+
+  return _decorated
+
+
+class MeHandler(BaseRequestHandler):
+  @ValidateCredential
+  def post(self):
+    credential = pickle.loads(self.session['credential'])
+
+    self.response.headers['Content-Type'] = 'application/json'
+    self.response.out.write(json.dumps({
+      'token': credential.access_token,
+      'email': self.user.get('email')
+    }))

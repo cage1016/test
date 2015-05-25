@@ -3,7 +3,7 @@
 
 import webapp2
 import endpoints
-from application.apis import recipients
+from application.apis import resources
 
 from application.controllers.base import *
 
@@ -49,6 +49,7 @@ routes = [
 
   ('/oauth2callback', OAuth2CallbackHandler),
   ('/logout', LogOutHandler),
+  ('/me', MeHandler),
 
   ('/mail', SendMailHandler)
 ]
@@ -65,5 +66,5 @@ router.error_handlers[403] = Webapp2HandlerAdapter(Handle403)
 # router.error_handlers[500] = Webapp2HandlerAdapter(Handle500)
 
 API = endpoints.api_server([
-  recipients.RecipientApi
+  resources.ResourceApi
 ])
