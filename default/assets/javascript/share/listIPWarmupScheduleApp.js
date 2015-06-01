@@ -12,6 +12,69 @@ var $ = require('jquery');
 var Spinner = require('./vitullo-spinner.jsx');
 var api = require('./api');
 
+var LoadMore = React.createClass({
+
+  render: function () {
+
+    var rowStyle = {
+      'display': 'none'
+    };
+
+    if (this.props.next_cursor) {
+      rowStyle.display = 'block';
+    }
+
+    return (
+      <div className="row" style={rowStyle}>
+        <div className="col-sm-12 col-md-12">
+          <div className="btn-group" role="group" aria-label="...">
+            <div className="btn-group" role="group">
+              <button type="button" className="btn btn-default" onClick={this._onClick}>{this.props.status}</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  },
+
+  _onClick: function () {
+    this.props.loadMore();
+  }
+});
+
+var Filter = React.createClass({
+  getInitialState: function () {
+    return {
+      categories: ''
+    };
+  },
+
+  render: function () {
+    return (
+      <div className="well well-sm" onSubmit={this._onChange}>
+        <form className="form-inline">
+          <div className="form-group">
+            <label for="exampleInputName2">Category</label>
+            <input type="text" className="form-control" id="exampleInputName2" placeholder="Type Category" onChange={this._onChange} value={this.state.categories}/>
+          </div>
+          <button type="submit" className="btn btn-primary" onClick={this._onClick}>Search</button>
+        </form>
+      </div>
+    );
+  },
+
+  _onChange: function (evt) {
+    this.setState({'categories': evt.target.value});
+  },
+
+  _onClick: function(evt){
+    evt.stopPropagation();
+    evt.preventDefault();
+
+    this.props.filter(this.state.categories);
+  }
+});
+
 var listIPWarmupScheduleApp = React.createClass({
 
   mixins: [
@@ -22,25 +85,54 @@ var listIPWarmupScheduleApp = React.createClass({
 
   getInitialState: function () {
     return {
-      jobs: {}
+      jobs: [],
+      next_cursor: '',
+      pre_cursor: '',
+      status: 'Load More',
+      categories: '' // category filter,
     };
   },
 
-  fetchRecipient: function () {
+  fetchSchedule: function (parameters) {
+    this.parameters = parameters || {};
     this.startSpinner('spinner');
 
-    api.getScheduleList().done(function (result) {
+    api.getScheduleList(parameters).done(function (result) {
       this.stopSpinner('spinner');
-      this.setState({'jobs': result.data});
+
+      this.setState({
+        jobs: (this.parameters.loadmore) ? this.state.jobs.concat(result.data || []) : result.data,
+        next_cursor: result.next_cursor,
+        pre_cursor: result.pre_cursor
+      });
+
     }.bind(this));
   },
+
+  deleteSchedule: function (id) {
+    this.startSpinner('spinner');
+    api.deleteSchedule(id).done(function (result) {
+      this.stopSpinner('spinner');
+
+      var o = this.state.jobs;
+      var index = o.map(function (x) {
+        return x.urlsafe;
+      }).indexOf(result.urlsafe);
+      if (index > -1) {
+        o.splice(index, 1);
+        this.setState({'jobs': o});
+      }
+
+    }.bind(this));
+  },
+
 
   componentWillMount: function () {
     this.addSpinners(['spinner', 'fetch']);
   },
 
   componentDidMount: function () {
-    this.fetchRecipient();
+    this.fetchSchedule();
   },
 
   render: function () {
@@ -52,6 +144,7 @@ var listIPWarmupScheduleApp = React.createClass({
         var job = this.state.jobs[i];
         jobs.push(
           <tr>
+            <td>{job.schedule_executed ? 'Yes' : ''}</td>
             <td>{job.subject}</td>
             <td>{job.category}</td>
             <td>{job.schedule_display}</td>
@@ -66,7 +159,7 @@ var listIPWarmupScheduleApp = React.createClass({
             </td>
             <td>{job.created}</td>
             <td>
-
+              <button className="btn btn-xs btn-danger" onClick={this._onClick.bind(this, job)}>Delete</button>
             </td>
           </tr>
         );
@@ -77,11 +170,13 @@ var listIPWarmupScheduleApp = React.createClass({
     return (
       <div>
         <Spinner loaded={this.getSpinner('spinner')} message="" spinWait={0} msgWait={0}>
-          <h1></h1>
+          <h1 className="spinner-h1"></h1>
         </Spinner>
+        <Filter filter={this.triggerFilter}/>
         <table className="table">
           <thead>
             <tr>
+              <th>executed</th>
               <th>subject</th>
               <th>Category</th>
               <th>Schedule</th>
@@ -97,15 +192,22 @@ var listIPWarmupScheduleApp = React.createClass({
         {jobs}
           </tbody>
         </table>
+        <LoadMore next_cursor={this.state.next_cursor} loadMore={this.loadMore} status={this.state.status}/>
       </div>
     );
   },
 
-  _onClick: function (evt) {
-    evt.stopPropagation();
-    evt.preventDefault();
+  _onClick: function (job) {
+    this.deleteSchedule(job.urlsafe);
+  },
 
+  loadMore: function () {
+    this.fetchSchedule({c: this.state.next_cursor, 'categories': this.state.categories, 'loadmore': true});
+  },
 
+  triggerFilter: function (categories) {
+    this.setState({'categories': categories});
+    this.fetchSchedule({'categories': categories, 'loadmore': false});
   }
 
 });

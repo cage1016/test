@@ -81,10 +81,52 @@ CheeerspointAPI.prototype.deleteResource = function (id) {
   }
 };
 
-CheeerspointAPI.prototype.getScheduleList = function () {
+CheeerspointAPI.prototype.getScheduleList = function (parameters) {
+  function run(apiRoot, token) {
+    return $.ajax({
+      url: apiRoot + '/cheerspoint/v1/schedules' + ((parameters) ? '?' + $.param(parameters) : ''),
+      beforeSend: function (xhr) {
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
+      }.bind(this)
+    });
+  }
+
+  if (this.token) {
+    return run(this.apiRoot, this.token);
+  } else {
+    return this.fetchToken().then(function () {
+      return run(this.apiRoot, this.token);
+    }.bind(this));
+  }
+};
+
+CheeerspointAPI.prototype.insertSchedule = function (data) {
   function run(apiRoot, token) {
     return $.ajax({
       url: apiRoot + '/cheerspoint/v1/schedules',
+      method: 'POST',
+      data: data,
+      beforeSend: function (xhr) {
+        xhr.setRequestHeader("Authorization", "Bearer " + token);
+        xhr.setRequestHeader("Content-Type", "application/json");
+      }.bind(this)
+    });
+  }
+
+  if (this.token) {
+    return run(this.apiRoot, this.token);
+  } else {
+    return this.fetchToken().then(function () {
+      return run(this.apiRoot, this.token);
+    }.bind(this));
+  }
+};
+
+CheeerspointAPI.prototype.deleteSchedule = function (id) {
+  function run(apiRoot, token) {
+    return $.ajax({
+      url: apiRoot + '/cheerspoint/v1/schedules/' + id,
+      method: 'DELETE',
       beforeSend: function (xhr) {
         xhr.setRequestHeader("Authorization", "Bearer " + token);
       }.bind(this)

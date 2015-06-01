@@ -139,7 +139,24 @@ tr.reactable-filterer td {
     color: #bbb;
 }
 
-#drop_zone:hover{
+#drop_zone:hover {
     color: #aaa;
     cursor: pointer;
+}
+
+.add-schedule-capacity {
+    margin-top: 10px;
+    margin-bottom: 0px;
+}
+
+
+.spinner-h1{
+    display: none;
+}
+#list-ip-warmup-schedule > div{
+    padding-top: 10px;
+}
+
+#list-ip-warmup-schedule div.well{
+    margin-bottom: 0px;
 }

@@ -216,7 +216,7 @@ var doRun = function (development) {
         development: development,
         src: [
             './bower_components/todc-bootstrap/dist/css/bootstrap.css',
-            './bower_components/todc-bootstrap/dist/css/tdoc-bootstrap.css',
+            './bower_components/todc-bootstrap/dist/css/todc-bootstrap.css',
             './bower_components/eonasdan-bootstrap-datetimepicker/build/css/bootstrap-datetimepicker.min.css',
             './bower_components/bootstrap-daterangepicker/daterangepicker-bs3.css',
             './assets/stylesheet/custom.css',
