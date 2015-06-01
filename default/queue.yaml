@@ -7,8 +7,16 @@ queue:
 
 - name: worker
   rate: 50/s
-  bucket_size: 100
-  max_concurrent_requests: 10
+  bucket_size: 500
+  max_concurrent_requests: 1000
+  retry_parameters:
+    task_retry_limit: 3
+    task_age_limit: 20m
+
+- name: worker2
+  rate: 50/s
+  bucket_size: 500
+  max_concurrent_requests: 1000
   retry_parameters:
     task_retry_limit: 3
     task_age_limit: 20m
@@ -16,13 +24,13 @@ queue:
 - name: resource-delete
   rate: 1/s
 
-- name: recipient-queue-delete
+- name: schedule-delete
   rate: 1/s
 
 - name: parsecsv
   rate: 1/s
 
 - name: webhook
-  rate: 5/s
-  bucket_size: 10
-  max_concurrent_requests: 10
+  rate: 20/s
+  bucket_size: 40
+  max_concurrent_requests: 80

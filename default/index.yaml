@@ -10,17 +10,6 @@ indexes:
 # automatically uploaded to the admin console when you next deploy
 # your application using appcfg.py.
 
-- kind: BlobFiles
-  properties:
-  - name: gcs_filename
-  - name: filename
-
-- kind: BlobFiles
-  ancestor: yes
-  properties:
-  - name: created
-    direction: desc
-
 - kind: Recipient
   ancestor: yes
   properties:
@@ -32,13 +21,46 @@ indexes:
   properties:
   - name: status
 
-- kind: ScheduleEmail
-  ancestor: yes
+- kind: Resource
   properties:
   - name: created
     direction: desc
+  - name: __key__
+    direction: desc
 
-- kind: ScheduleEmail
-  ancestor: yes
+- kind: Schedule
   properties:
-  - name: status
+  - name: __key__
+    direction: desc
+
+- kind: Schedule
+  properties:
+  - name: category
+  - name: __key__
+    direction: desc
+
+- kind: Schedule
+  properties:
+  - name: category
+  - name: created
+
+- kind: Schedule
+  properties:
+  - name: category
+  - name: created
+    direction: desc
+
+- kind: Schedule
+  properties:
+  - name: category
+  - name: created
+    direction: desc
+  - name: __key__
+    direction: desc
+
+- kind: Schedule
+  properties:
+  - name: created
+    direction: desc
+  - name: __key__
+    direction: desc
