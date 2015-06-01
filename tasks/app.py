@@ -17,8 +17,10 @@ routes = [
   (r'/tasks/schedule', ScheduleHandler),
   (r'/tasks/mailer', MailerHandler),
   (r'/tasks/worker', WorkHandler),
+  (r'/tasks/worker2', WorkHandler),
 
   (r'/tasks/delete_resources', GCSResourcesDeleteHandler),
+  (r'/tasks/delete_schedule', ScheduleDeleteHandler),
 
   (r'/.*', TasksHandler)
 ]

@@ -1,13 +1,14 @@
 import io
-import os.path
 import pickle
 import webapp2
 import logging
 import json
 from delorean import Delorean
+import datetime
 
-from models import Schedule, LogEmail, LogSendEmailFail
+from google.appengine.api import memcache
 from google.appengine.ext import ndb
+from google.appengine.datastore.datastore_query import Cursor
 from google.appengine.api.taskqueue import taskqueue
 from apiclient.http import MediaIoBaseDownload
 
@@ -15,21 +16,24 @@ from sendgrid import SendGridClient
 from sendgrid import Mail
 
 import settings
+from models import Schedule, LogEmail, LogSendEmailFail, RecipientQueueData
 
 
 class ScheduleHandler(webapp2.RequestHandler):
   def get(self):
-    timestamp = Delorean().epoch()
+    now = Delorean().truncate('minute')
 
-    logging.info('cron job timestamp=%f' % timestamp)
+    logging.info('match schedule_timestamp query = %f' % now.epoch())
 
-    #
-    logging.info('manual setting debug timestamp= 1433322000.0 for testing')
-    timestamp = 1433116800.0
-
-    jobs = Schedule.query(Schedule.schedule_timestamp == timestamp).fetch()
+    jobs = Schedule.query(Schedule.schedule_timestamp == now.epoch()).fetch()
+    # jobs = Schedule.query(Schedule.schedule_timestamp == 1432634400.0).fetch()
 
     for job in jobs:
+      job.schedule_executed = True
+      job.put()
+
+      logging.info('job schedule found!!, categroy:%s, hour_capacity= %d' % (job.category, job.hour_capacity))
+
       taskqueue.add(url='/tasks/mailer',
                     params={
                       'jkey': job.key.urlsafe()
@@ -38,6 +42,27 @@ class ScheduleHandler(webapp2.RequestHandler):
 
 
 class MailerHandler(webapp2.RequestHandler):
+  def read_edm_file(self, edm_object_name):
+    data = memcache.get(edm_object_name)
+    if data is not None:
+      return data
+
+    else:
+      fh = io.BytesIO()
+      request = self.gcs_service.objects().get_media(bucket=settings.BUCKET, object=edm_object_name.encode('utf8'))
+      downloader = MediaIoBaseDownload(fh, request, chunksize=settings.CHUNKSIZE)
+      done = False
+      while not done:
+        status, done = downloader.next_chunk()
+        if status:
+          logging.info('Download %d%%.' % int(status.progress() * 100))
+        logging.info('Download %s Complete!' % edm_object_name)
+
+      data = fh.getvalue()
+      memcache.add(edm_object_name, data, settings.EDM_CONTENT_MEMCACHE_TIME)
+      return data
+
+  @settings.ValidateGCSWithCredential
   def post(self):
     skey = self.request.get('jkey')
 
@@ -46,64 +71,61 @@ class MailerHandler(webapp2.RequestHandler):
     if schedule_job:
       logging.info('execute %s @ %s' % (schedule_job.category, schedule_job.schedule_display))
 
-      for index, recipient_queue in enumerate(schedule_job.recipientQueue):
-        logging.info('%d, %s' % (index, recipient_queue.urlsafe()))
-        taskqueue.add(url='/tasks/worker',
-                      params={
-                        'schedule': pickle.dumps(schedule_job),
-                        'rqkey': recipient_queue.urlsafe(),
-                        'edm_object_name': schedule_job.edm_object_name
-                      },
-                      queue_name='worker')
+      content = self.read_edm_file(schedule_job.edm_object_name)
+
+      cursor = None
+      while True:
+        curs = Cursor(urlsafe=cursor)
+        recipientQueues, next_curs, more = RecipientQueueData.query(
+          ancestor=schedule_job.key).fetch_page(settings.QUEUE_CHUNKS_SIZE, start_cursor=curs)
+
+        for index, r in enumerate(recipientQueues):
+          params = {
+            'schedule': pickle.dumps(schedule_job),
+            'rqkey': r.key.urlsafe(),
+            'content': content,
+            'edm_object_name': schedule_job.edm_object_name
+          }
+
+          if index % 2 == 1:
+            taskqueue.add(url='/tasks/worker', params=params, queue_name='worker')
+
+          if index % 2 == 0:
+            taskqueue.add(url='/tasks/worker2', params=params, queue_name='worker2')
+
+        if more and next_curs:
+          cursor = next_curs.urlsafe()
+
+        else:
+          break
 
 
 class WorkHandler(webapp2.RequestHandler):
-  def read_edm_file(self, edm_object_name):
-    content = None
-    file_name = edm_object_name.replace('/', '_')
-
-    if os.path.exists(file_name):
-      with open(file_name, 'r') as f:
-        content = f.read()
-      return content
-
-    else:
-      file_name = edm_object_name.replace('/', '_')
-      fh = io.FileIO(file_name, mode='wb')
-
-      request = self.gcs_service.objects().get_media(bucket=settings.BUCKET, object=edm_object_name.encode('utf8'))
-      downloader = MediaIoBaseDownload(fh, request, chunksize=settings.CHUNKSIZE)
-
-      done = False
-      while done is False:
-        status, done = downloader.next_chunk()
-        if status:
-          print "Download %d%%." % int(status.progress() * 100)
-        print "Download Complete!"
-
-      with open(file_name, 'r') as f:
-        content = f.read()
-      return content
-
-  @settings.ValidateGCSWithCredential
   def post(self):
     rqkey = self.request.get('rqkey')
-    edm_object_name = self.request.get('edm_object_name')
+    content = self.request.get('content')
     schedule = pickle.loads(self.request.get('schedule'))
-
-    logging.info(schedule)
-
-    content = self.read_edm_file(edm_object_name)
-    # logging.info(content)
 
     recipient_queue = ndb.Key(urlsafe=rqkey).get()
 
-    for data in json.loads(recipient_queue.data):
+    try:
+      recipients = json.loads(recipient_queue.data)
+
+    except AttributeError:
+      logging.error('AttributeError: urlsafe= %s, key= %s' % (rqkey, recipient_queue.key))
+      logging.error('cancel mail worker!!')
+      return
+
+    logging.debug('/tasks/worker executed: send %d recipients.' % len(recipients))
+
+    list_of_entity = []
+    sendgrid = settings.SENDGRID[schedule.sendgrid_account]
+
+    logging.debug(str(sendgrid))
+
+    sg = SendGridClient(sendgrid.get('USERNAME'), sendgrid.get('PASSWORD'), raise_errors=True)
+    for data in recipients:
       email = data['email']
-
-      logging.info('sendgrid send = %s' % email)
-
-      sg = SendGridClient(settings.SENDGRID['USERNAME'], settings.SENDGRID['PASSWORD'], raise_errors=True)
 
       message = Mail()
       message.set_subject(schedule.subject)
@@ -112,6 +134,9 @@ class WorkHandler(webapp2.RequestHandler):
       message.add_to(email)
       message.add_category(schedule.category)
 
+      # status = 200
+      # msg = ''
+      logging.debug(message)
       status, msg = sg.send(message)
 
       d = Delorean()
@@ -129,9 +154,7 @@ class WorkHandler(webapp2.RequestHandler):
           when_timestamp=d.epoch(),
           when_display=d.naive()
         )
-        log_email.put()
-
-        logging.info('%s send successful' % email)
+        # list_of_entity.append(log_email)
 
       else:
         log_send_mail_fail = LogSendEmailFail(
@@ -148,6 +171,15 @@ class WorkHandler(webapp2.RequestHandler):
           when_display=d.naive(),
           reason=str(msg)
         )
-        log_send_mail_fail.put()
+        list_of_entity.append(log_send_mail_fail)
 
-        logging.info('%s send successful' % email)
+        logging.info('%s send fail: %s, %s' % email)
+
+    futures = []
+    futures.extend(ndb.put_multi_async(list_of_entity))
+    ndb.Future.wait_all(futures)
+    # TODO refactor
+    # if any(f.get_exception() for f in futures):
+    # raise ndb.Rollback()
+
+

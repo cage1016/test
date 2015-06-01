@@ -7,17 +7,47 @@ from oauth2client.appengine import AppAssertionCredentials
 DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
 
 # google cloud storage download chucks size
-CHUNKSIZE = 2 * 1024 * 1024
+CHUNKSIZE = 1 * 1024 * 1024
 
 # ipwarmup schedule multiple put size
-QUEUE_CHUNKS_SIZE = 50
+QUEUE_CHUNKS_SIZE = 10
+
+# RecipientQueueData query fetch page size
+RECIPIENT_CHENKS_SIZE = 10
+
+# html content memcache limit time
+# 7200 sec = 2 hours
+EDM_CONTENT_MEMCACHE_TIME = 7200
 
 # recipient upload bucket
 BUCKET = 'cheerspoint-recipient'
 
+# SENDGRID = {
+# 'USERNAME': 'kaichu',
+# 'PASSWORD': '@75dkyz9n'
+# }
+
 SENDGRID = {
-  'USERNAME': 'kaichu',
-  'PASSWORD': '@75dkyz9n'
+  'kaichu':{
+    'USERNAME': 'kaichu',
+    'PASSWORD': '@75dkyz9n',
+  },
+  'mitac2hr': {
+    'USERNAME': 'mitac-2hr',
+    'PASSWORD': 'Micloud@mitac888',
+  },
+  'mitacmax': {
+    'USERNAME': 'mitac-max',
+    'PASSWORD': 'Micloud@mitac888'
+  },
+  'mitacwarmup1': {
+    'USERNAME': 'mitac-warmup1',
+    'PASSWORD': 'Micloud@mitac888'
+  },
+  'mitacwarmup2': {
+    'USERNAME': 'mitac-warmup2',
+    'PASSWORD': 'Micloud@mitac888'
+  }
 }
 
 
