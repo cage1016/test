@@ -12,10 +12,16 @@ class RecipientQueueData(ndb.Model):
   data = ndb.JsonProperty(compressed=True)
   created = ndb.DateTimeProperty(auto_now_add=True)
 
+  @classmethod
+  @ndb.tasklet
+  def delete_all_for_schedule(cls, schedule_key):
+    yield ndb.delete_multi_async(cls.query(ancestor=schedule_key).fetch(keys_only=True, batch_size=100))
+
 
 # should same as default/models.py
 # updated 2015/5/21
 class Schedule(ndb.Model):
+  sendgrid_account = ndb.StringProperty()
   category = ndb.StringProperty()
 
   # subject
@@ -27,9 +33,9 @@ class Schedule(ndb.Model):
   type = ndb.StringProperty()
 
   # 開始時間後第幾個小時. 1開始
-  hour_delta = ndb.IntegerProperty()
+  hour_delta = ndb.IntegerProperty(default=0)
   # 每個小時發的容量
-  hour_capacity = ndb.IntegerProperty()
+  hour_capacity = ndb.IntegerProperty(default=0)
   # 預設是將每天的量分成24小時間來發，
   # default: 1/24hrs, 如果前5個小時要發完 1/5hrs
   hour_rate = ndb.StringProperty()
@@ -38,6 +44,8 @@ class Schedule(ndb.Model):
   schedule_timestamp = ndb.FloatProperty()
   # schedule display for human
   schedule_display = ndb.DateTimeProperty()
+  # schedule has been executed
+  schedule_executed = ndb.BooleanProperty(default=False)
 
   txt_object_name = ndb.StringProperty()
   edm_object_name = ndb.StringProperty()
@@ -64,6 +72,8 @@ class LogEmail(ndb.Model):
 
   when_timestamp = ndb.FloatProperty()
   when_display = ndb.DateTimeProperty()
+
+  created = ndb.DateTimeProperty(auto_now_add=True)
 
   def get_id(self):
     return self._key.id()

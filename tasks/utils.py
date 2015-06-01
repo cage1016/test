@@ -1,12 +1,18 @@
 __author__ = 'cage'
 
-import time
+from delorean import Delorean, parse
 import math
-import calendar
-from datetime import datetime, timedelta
+import datetime
 
 
-def each_hour_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB):
+def time_to_utc(my_time):
+  d = parse(my_time)
+  d = d.datetime + datetime.timedelta(hours=-8)
+  d = parse(d.strftime('%Y-%m-%d %H:%M:%S'))
+  return d.truncate('minute')
+
+
+def each_hour_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY):
   """
   utils func - each_hour_sending_rate()
   how many ip warmup email we can send by sendgrid suggest schedule per hours
@@ -21,7 +27,7 @@ def each_hour_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB):
   [91, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83]
 
   """
-  daily_quota = 1000 * ip_count
+  daily_quota = DAILY_CAPACITY * ip_count
   quota = [0] * 24
 
   hourly_quota = int(math.pow(2, number_of_day) * daily_quota)
@@ -39,7 +45,7 @@ def each_hour_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB):
   return quota
 
 
-def ipwarmup_day_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24):
+def ipwarmup_day_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPACITY=1000):
   """
 
   :param days:
@@ -52,10 +58,14 @@ def ipwarmup_day_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24):
     HOW_MANY_HOURS_DO_THE_JOB = 24
 
   if days == 1:
-    return each_hour_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB)
+    return each_hour_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
 
   else:
-    resp = ipwarmup_day_sending_rate(days - 1, ip_count, HOW_MANY_HOURS_DO_THE_JOB) + each_hour_sending_rate(days,
-                                                                                                             ip_count,
-                                                                                                             HOW_MANY_HOURS_DO_THE_JOB)
+    resp = ipwarmup_day_sending_rate(days - 1,
+                                     ip_count,
+                                     HOW_MANY_HOURS_DO_THE_JOB,
+                                     DAILY_CAPACITY) + each_hour_sending_rate(days,
+                                                                              ip_count,
+                                                                              HOW_MANY_HOURS_DO_THE_JOB,
+                                                                              DAILY_CAPACITY)
     return resp
