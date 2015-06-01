@@ -29,8 +29,3 @@ queue:
 
 - name: parsecsv
   rate: 1/s
-
-- name: webhook
-  rate: 20/s
-  bucket_size: 40
-  max_concurrent_requests: 80
