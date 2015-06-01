@@ -15,7 +15,7 @@ class WebhookHandler(webapp2.RequestHandler):
     self.response.write("Welcome to the webhook module.")
 
   def post(self):
-    taskqueue.add(url='/webhook/worker',
+    taskqueue.add(url='/worker',
                   params={
                     'body': self.request.body
                   },
@@ -36,6 +36,7 @@ class WebookParserWorkerHandler(webapp2.RequestHandler):
         if key == 'smtp-id':
           m = re.search(r'<(.*)>', value)
           webhook.populate(**{key: m.group(1)})
+
         else:
           webhook.populate(**{key: value})
 
@@ -48,9 +49,9 @@ class QueryHandler(webapp2.RequestHandler):
 
 
 routes = [
-  (r'/webhook/query', QueryHandler),
-  (r'/webhook/worker', WebookParserWorkerHandler),
-  (r'/.*', WebhookHandler)
+  (r'/query', QueryHandler),
+  (r'/worker', WebookParserWorkerHandler),
+  (r'/', WebhookHandler)
 ]
 
 router = webapp2.WSGIApplication(routes, debug=True)

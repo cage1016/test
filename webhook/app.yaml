@@ -1,5 +1,4 @@
-application: mitac-cheerspoint-v20150518
-module: webhook
+application: mitac-sendgrid-webhook
 version: 1
 runtime: python27
 api_version: 1
