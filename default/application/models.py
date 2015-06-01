@@ -48,12 +48,26 @@ class temporary(ndb.Model):
     return output
 
 
-class AbstractNDBModel(ndb.Model):
+class User(auth_models.User):
+  account_enabled = ndb.BooleanProperty(default=False)
+  report_enabled = ndb.BooleanProperty(default=False)
+  description = ndb.TextProperty(default='')
+
+
+class Resource(ndb.Model):
+  object_name = ndb.StringProperty()
+  display_name = ndb.StringProperty()
+  bucket = ndb.StringProperty()
+  size = ndb.IntegerProperty()
+  content_type = ndb.StringProperty()
+  created = ndb.DateTimeProperty(auto_now_add=True)
+
   @classmethod
   def query_by_page(cls, cursor, forward, per_page, **params):
+
     if forward:
-      data, next_cursor, more = cls.query().order(-cls.created).fetch_page(per_page,
-                                                                           start_cursor=cursor)
+      query = cls.query().order(-cls.created, -cls._key)
+      data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:
         next_cursor = next_cursor.urlsafe()
@@ -64,8 +78,8 @@ class AbstractNDBModel(ndb.Model):
         params.update(pre_cursor=pre_cursor)
 
     else:
-      data, next_cursor, more = cls.query().order(cls.created).fetch_page(per_page,
-                                                                          start_cursor=cursor)
+      query = cls.query().order(cls.created, cls._key)
+      data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:
         pre_cursor = next_cursor.urlsafe()
@@ -77,21 +91,6 @@ class AbstractNDBModel(ndb.Model):
     params.update(data=data)
 
     return params
-
-
-class User(auth_models.User):
-  account_enabled = ndb.BooleanProperty(default=False)
-  report_enabled = ndb.BooleanProperty(default=False)
-  description = ndb.TextProperty(default='')
-
-
-class Resource(AbstractNDBModel):
-  object_name = ndb.StringProperty()
-  display_name = ndb.StringProperty()
-  bucket = ndb.StringProperty()
-  size = ndb.IntegerProperty()
-  content_type = ndb.StringProperty()
-  created = ndb.DateTimeProperty(auto_now_add=True)
 
 
 class RecipientData(ndb.Expando):
@@ -106,7 +105,8 @@ class RecipientQueueData(ndb.Model):
 
 # should same as default/models.py
 # updated 2015/5/21
-class Schedule(AbstractNDBModel):
+class Schedule(ndb.Model):
+  sendgrid_account = ndb.StringProperty()
   category = ndb.StringProperty()
 
   # subject
@@ -118,9 +118,9 @@ class Schedule(AbstractNDBModel):
   type = ndb.StringProperty()
 
   # 開始時間後第幾個小時. 1開始
-  hour_delta = ndb.IntegerProperty()
+  hour_delta = ndb.IntegerProperty(default=0)
   # 每個小時發的容量
-  hour_capacity = ndb.IntegerProperty()
+  hour_capacity = ndb.IntegerProperty(default=0)
   # 預設是將每天的量分成24小時間來發，
   # default: 1/24hrs, 如果前5個小時要發完 1/5hrs
   hour_rate = ndb.StringProperty()
@@ -129,12 +129,51 @@ class Schedule(AbstractNDBModel):
   schedule_timestamp = ndb.FloatProperty()
   # schedule display for human
   schedule_display = ndb.DateTimeProperty()
+  # schedule has been executed
+  schedule_executed = ndb.BooleanProperty(default=False)
 
   txt_object_name = ndb.StringProperty()
   edm_object_name = ndb.StringProperty()
 
   recipientQueue = ndb.KeyProperty(kind=RecipientQueueData, repeated=True)
   created = ndb.DateTimeProperty(auto_now_add=True)
+
+
+  @classmethod
+  def query_by_page(cls, categories, cursor, forward, per_page, **params):
+
+    if forward:
+      query = cls.query().order(-cls.created, -cls._key)
+      if categories:
+        query = query.filter(cls.category.IN(categories.split(',')))
+
+      data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
+
+      if next_cursor and more:
+        next_cursor = next_cursor.urlsafe()
+        params.update(next_cursor=next_cursor)
+
+      if cursor:
+        pre_cursor = cursor.reversed().urlsafe()
+        params.update(pre_cursor=pre_cursor)
+
+    else:
+      query = cls.query().order(cls.created, cls._key)
+      if categories:
+        query = query.filter(cls.category.IN(categories.split(',')))
+
+      data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
+
+      if next_cursor and more:
+        pre_cursor = next_cursor.urlsafe()
+        params.update(pre_cursor=pre_cursor)
+
+      next_cursor = cursor.reversed().urlsafe()
+      params.update(next_cursor=next_cursor)
+
+    params.update(data=data)
+
+    return params
 
 
 class Site(ndb.Model):

@@ -72,6 +72,7 @@ class IPWamrupAddJobHandler(AbstractHandler):
       'bucket_name': recipient_txt.bucket,
       'schedule_duration': self.request.get('scheduleDuration'),
       'ip_counts': self.request.get('ipCounts'),
+      'daily_capacity': self.request.get('dailyCapacity'),
       'category': self.request.get('category').encode('utf8'),
       'recipient_skip': self.request.get('recipientSkip'),
       'start_time': self.request.get('startTime').encode('utf8'),

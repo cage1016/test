@@ -20,6 +20,8 @@ class SchedulesResponseMessage(messages.Message):
   edm_object_name = messages.StringField(8)
   txt_object_name = messages.StringField(9)
   created = messages.StringField(10)
+  schedule_executed = messages.BooleanField(11)
+  sendgrid_account = messages.StringField(12)
 
 
 class SchedulesListResponse(messages.Message):
@@ -28,8 +30,45 @@ class SchedulesListResponse(messages.Message):
   data = messages.MessageField(SchedulesResponseMessage, 3, repeated=True)
 
 
+class SchedulesDeleteRequest(messages.Message):
+  pass
+
+
+class SchedulesDeleteResponse(messages.Message):
+  urlsafe = messages.StringField(1)
+
+
+class SchedulesInsertRequest(messages.Message):
+  recipientTxtUrlsafe = messages.StringField(1)
+  recipientEdmUrlsafe = messages.StringField(2)
+  subject = messages.StringField(3)
+  senderName = messages.StringField(4)
+  senderEmail = messages.StringField(5)
+  type = messages.StringField(6)
+  scheduleDuration = messages.IntegerField(7)
+  ipCounts = messages.IntegerField(8)
+  dailyCapacity = messages.IntegerField(9)
+  category = messages.StringField(10)
+  recipientSkip = messages.IntegerField(11)
+  startTime = messages.StringField(12)
+  hourRate = messages.IntegerField(13)
+  sendgridAccount = messages.StringField(14)
+
+
+class SchedulesInsertResponse(messages.Message):
+  msg = messages.StringField(1)
+
+
 SCHEDULES_LIST_RESOURCE = endpoints.ResourceContainer(
   SchedulesListRequest,
   p=messages.StringField(2),
   c=messages.StringField(3),
-  per_page=messages.IntegerField(4))
+  per_page=messages.IntegerField(4),
+  categories=messages.StringField(5))
+
+SCHEDULES_INSERT_RESOURCE = endpoints.ResourceContainer(
+  SchedulesInsertRequest)
+
+SCHEDULES_DELETE_RESOURCE = endpoints.ResourceContainer(
+  SchedulesDeleteRequest,
+  id=messages.StringField(2, required=True))
