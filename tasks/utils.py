@@ -3,16 +3,27 @@ __author__ = 'cage'
 from delorean import Delorean, parse
 import math
 import datetime
+import logging
+
+from google.appengine import runtime
+from google.appengine.api.taskqueue import taskqueue
+
+TIME_FORMAT = '%Y-%m-%d %H:%M:%S'
 
 
 def time_to_utc(my_time):
   d = parse(my_time)
   d = d.datetime + datetime.timedelta(hours=-8)
-  d = parse(d.strftime('%Y-%m-%d %H:%M:%S'))
+  d = parse(d.strftime(TIME_FORMAT))
   return d.truncate('minute')
 
 
-def each_hour_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY):
+def time_add(d, delta):
+  _d = d.datetime + datetime.timedelta(hours=delta)
+  return parse(_d.strftime(TIME_FORMAT))
+
+
+def hourly_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY):
   """
   utils func - each_hour_sending_rate()
   how many ip warmup email we can send by sendgrid suggest schedule per hours
@@ -45,7 +56,7 @@ def each_hour_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB, D
   return quota
 
 
-def ipwarmup_day_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPACITY=1000):
+def daily_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPACITY=1000):
   """
 
   :param days:
@@ -58,14 +69,51 @@ def ipwarmup_day_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAIL
     HOW_MANY_HOURS_DO_THE_JOB = 24
 
   if days == 1:
-    return each_hour_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
+    return hourly_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
 
   else:
-    resp = ipwarmup_day_sending_rate(days - 1,
-                                     ip_count,
-                                     HOW_MANY_HOURS_DO_THE_JOB,
-                                     DAILY_CAPACITY) + each_hour_sending_rate(days,
-                                                                              ip_count,
-                                                                              HOW_MANY_HOURS_DO_THE_JOB,
-                                                                              DAILY_CAPACITY)
+    resp = daily_sending_rate(days - 1,
+                              ip_count,
+                              HOW_MANY_HOURS_DO_THE_JOB,
+                              DAILY_CAPACITY) + hourly_sending_rate(days,
+                                                                    ip_count,
+                                                                    HOW_MANY_HOURS_DO_THE_JOB,
+                                                                    DAILY_CAPACITY)
     return resp
+
+
+def sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPACITY=1000):
+  rate = daily_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
+
+  return rate, sum(rate)
+
+
+def enqueue_task(url, queue_name, params=None, payload=None, name=None, transactional=False):
+  """Adds a task to a task queue.
+  Returns True if a task was successfully added, logs error and returns False
+  if task queue is acting up.
+  https://chromium.googlesource.com/external/github.com/luci/luci-py/+/refs/heads/stable/appengine/components/components/utils.py
+  """
+  try:
+    headers = None
+    # Note that just using 'target=module' here would redirect task request to
+    # a default version of a module, not the currently executing one.
+    taskqueue.add(
+      url=url,
+      queue_name=queue_name,
+      payload=payload,
+      params=params,
+      name=name,
+      headers=headers,
+      transactional=transactional)
+    return True
+  except (
+      taskqueue.Error,
+      runtime.DeadlineExceededError,
+      runtime.apiproxy_errors.CancelledError,
+      runtime.apiproxy_errors.DeadlineExceededError,
+      runtime.apiproxy_errors.OverQuotaError) as e:
+    logging.warning(
+      'Problem adding task \'%s\' to task queue \'%s\' (%s): %s',
+      url, queue_name, e.__class__.__name__, e)
+    return False
