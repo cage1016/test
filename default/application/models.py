@@ -108,6 +108,7 @@ class RecipientQueueData(ndb.Model):
 class Schedule(ndb.Model):
   sendgrid_account = ndb.StringProperty()
   category = ndb.StringProperty()
+  reply_to = ndb.StringProperty()
 
   # subject
   subject = ndb.StringProperty()

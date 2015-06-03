@@ -29,6 +29,7 @@ var addIPWarmupScheduleApp = React.createClass({
         recipientTxtUrlsafe: '',
         recipientEdmUrlsafe: '',
         category: '',
+        replyTo: '',
         scheduleDuration: 1,
         ipCounts: 1,
         dailyCapacity: 1000,
@@ -135,10 +136,10 @@ var addIPWarmupScheduleApp = React.createClass({
               <label for="inputEmail3" className="col-sm-2 control-label">Sendgrid Account</label>
               <div className="col-sm-10">
                 <select className="form-control" id="sendgridAccount" ref="sendgridAccount" onChange={this._onChange}>
-                  <option value="mitac2hr">mitac-2hr</option>
-                  <option value="mitacmax">mitac-max</option>
-                  <option value="mitacwarmup1">mitac-warmup1</option>
-                  <option value="mitacwarmup2">mitac-warmup2</option>
+                  <option value="mitac2hr">Cheerspoint:mitac-2hr</option>
+                  <option value="mitacmax">Cheerspoint:mitac-max</option>
+                  <option value="mitacwarmup1">Cheerspoint:mitac-warmup1</option>
+                  <option value="mitacwarmup2">Cheerspoint:mitac-warmup2</option>
                 </select>
               </div>
             </div>
@@ -152,6 +153,12 @@ var addIPWarmupScheduleApp = React.createClass({
               <label for="inputEmail3" className="col-sm-2 control-label">Sender Email</label>
               <div className="col-sm-10">
                 <input type="text" className="form-control" id="senderEmail" ref="senderEmail" placeholder="senderEmail" onChange={this._onChange} value={this.state.senderEmail} required/>
+              </div>
+            </div>
+            <div className="form-group">
+              <label for="inputEmail3" className="col-sm-2 control-label">Reply To</label>
+              <div className="col-sm-10">
+                <input type="text" className="form-control" id="replyTo" ref="replyTo" placeholder="replyTo" onChange={this._onChange} value={this.state.replyTo} required/>
               </div>
             </div>
             <div className="form-group">
@@ -238,7 +245,7 @@ var addIPWarmupScheduleApp = React.createClass({
             </div>
             <div className="form-group">
               <div className="col-sm-offset-2 col-sm-10">
-                <button type="submit" className="btn btn-primary" onChange={this._onChange} onClick={this._onClick}>Add</button>
+                <button type="submit" className="btn btn-primary" onChange={this._onChange} onClick={this._onClick}>Add Job</button>
               </div>
             </div>
           </form>
@@ -254,6 +261,7 @@ var addIPWarmupScheduleApp = React.createClass({
 
       api.insertSchedule(JSON.stringify({
           category: this.state.category.trim(),
+          replyTo: this.state.replyTo.trim(),
           dailyCapacity: this.state.dailyCapacity,
           hourRate: this.state.hourRate,
           ipCounts: this.state.ipCounts,
@@ -276,7 +284,7 @@ var addIPWarmupScheduleApp = React.createClass({
           console.error(error);
           this.stopSpinner('spinner');
           window.location.reload();
-        });
+        }.bind(this));
     },
 
     _onChange: function (e) {
@@ -306,6 +314,9 @@ var addIPWarmupScheduleApp = React.createClass({
           break;
         case "category":
           this.setState({'category': e.target.value});
+          break;
+        case "replyTo":
+          this.setState({'replyTo': e.target.value});
           break;
         case "subject":
           this.setState({'subject': e.target.value});

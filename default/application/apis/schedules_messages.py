@@ -53,6 +53,7 @@ class SchedulesInsertRequest(messages.Message):
   startTime = messages.StringField(12)
   hourRate = messages.IntegerField(13)
   sendgridAccount = messages.StringField(14)
+  replyTo = messages.StringField(15)
 
 
 class SchedulesInsertResponse(messages.Message):

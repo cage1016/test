@@ -11,12 +11,12 @@ class ParseCSVHandler(webapp2.RequestHandler):
   def post(self):
     parameters = pickle.loads(self.request.get('parameters'))
     # parameters = {'category': 'mitac-warmup1-day', 'recipient_skip': 0, 'sender_name': u'kaichu',
-    #               'daily_capacity': 1000, 'start_time': '2015/05/26 18:00', 'ip_counts': 1,
+    #               'daily_capacity': 50000, 'start_time': '2015/05/26 18:00', 'ip_counts': 1,
     #               'subject': u'my test 3', 'hour_rate': 1, 'bucket_name': u'cheerspoint-recipient',
     #               'sender_email': u'kaichu1016@gmail.com',
     #               'edm_object_name': u'ipwarmup/cage@mitac.com.tw/treemallmail.html',
     #               'sendgrid_account': u'kaichu',
-    #               'txt_object_name': u'ipwarmup/cage@mitac.com.tw/點鑽驗收郵件帳號清單_20150505_with_mitac 10萬.csv',
+    #               'txt_object_name': u'ipwarmup/cage@mitac.com.tw/kaichu1016_0375000.csv',
     #               'type': u'ipwarmup', 'schedule_duration': 1}
 
     sendgrid_account = parameters.get('sendgrid_account')
@@ -25,6 +25,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
     sender_email = parameters.get('sender_email')
 
     category = parameters.get('category')
+    reply_to = parameters.get('reply_to')
     type = parameters.get('type')
 
     txt_object_name = parameters.get('txt_object_name')
@@ -41,8 +42,20 @@ class ParseCSVHandler(webapp2.RequestHandler):
 
     logging.info(parameters)
 
-    parser = Parser(sendgrid_account, subject, sender_name, sender_email, category, type, txt_object_name,
-                    edm_object_name, bucket_name,
-                    schedule_duration, ip_counts,
-                    recipient_skip, hour_rate, start_time, daily_capacity)
+    parser = Parser(sendgrid_account,
+                    subject,
+                    sender_name,
+                    sender_email,
+                    category,
+                    reply_to,
+                    type,
+                    txt_object_name,
+                    edm_object_name,
+                    bucket_name,
+                    schedule_duration,
+                    ip_counts,
+                    recipient_skip,
+                    hour_rate,
+                    start_time,
+                    daily_capacity)
     parser.run()

@@ -4,12 +4,13 @@ import webapp2
 import logging
 import json
 from delorean import Delorean
-import datetime
 
 from google.appengine.api import memcache
+from google.appengine.api import urlfetch_errors
 from google.appengine.ext import ndb
 from google.appengine.datastore.datastore_query import Cursor
 from google.appengine.api.taskqueue import taskqueue
+from google.appengine.runtime.apiproxy_errors import OverQuotaError
 from apiclient.http import MediaIoBaseDownload
 
 from sendgrid import SendGridClient
@@ -17,6 +18,8 @@ from sendgrid import Mail
 
 import settings
 from models import Schedule, LogEmail, LogSendEmailFail, RecipientQueueData
+
+from utils import enqueue_task
 
 
 class ScheduleHandler(webapp2.RequestHandler):
@@ -26,7 +29,7 @@ class ScheduleHandler(webapp2.RequestHandler):
     logging.info('match schedule_timestamp query = %f' % now.epoch())
 
     jobs = Schedule.query(Schedule.schedule_timestamp == now.epoch()).fetch()
-    # jobs = Schedule.query(Schedule.schedule_timestamp == 1432634400.0).fetch()
+    # jobs = Schedule.query(Schedule.schedule_timestamp == 1432634401.0).fetch()
 
     for job in jobs:
       job.schedule_executed = True
@@ -72,6 +75,7 @@ class MailerHandler(webapp2.RequestHandler):
       logging.info('execute %s @ %s' % (schedule_job.category, schedule_job.schedule_display))
 
       content = self.read_edm_file(schedule_job.edm_object_name)
+      sendgrid = settings.SENDGRID[schedule_job.sendgrid_account]
 
       cursor = None
       while True:
@@ -82,16 +86,18 @@ class MailerHandler(webapp2.RequestHandler):
         for index, r in enumerate(recipientQueues):
           params = {
             'schedule': pickle.dumps(schedule_job),
-            'rqkey': r.key.urlsafe(),
+            'recipient_queue': r.data,
             'content': content,
-            'edm_object_name': schedule_job.edm_object_name
+            'edm_object_name': schedule_job.edm_object_name,
+            'sendgrid_account': sendgrid['USERNAME'],
+            'sendgrid_password': sendgrid['PASSWORD']
           }
 
-          if index % 2 == 1:
-            taskqueue.add(url='/tasks/worker', params=params, queue_name='worker')
-
           if index % 2 == 0:
-            taskqueue.add(url='/tasks/worker2', params=params, queue_name='worker2')
+            enqueue_task(url='/tasks/worker', queue_name='worker', params=params)
+
+          if index % 2 == 1:
+            enqueue_task(url='/tasks/worker2', queue_name='worker', params=params)
 
         if more and next_curs:
           cursor = next_curs.urlsafe()
@@ -102,28 +108,23 @@ class MailerHandler(webapp2.RequestHandler):
 
 class WorkHandler(webapp2.RequestHandler):
   def post(self):
-    rqkey = self.request.get('rqkey')
-    content = self.request.get('content')
+    """
+    mailsend worker
+    """
+
     schedule = pickle.loads(self.request.get('schedule'))
-
-    recipient_queue = ndb.Key(urlsafe=rqkey).get()
-
-    try:
-      recipients = json.loads(recipient_queue.data)
-
-    except AttributeError:
-      logging.error('AttributeError: urlsafe= %s, key= %s' % (rqkey, recipient_queue.key))
-      logging.error('cancel mail worker!!')
-      return
+    content = self.request.get('content')
+    recipients = json.loads(self.request.get('recipient_queue'))
+    sendgrid_account = self.request.get('sendgrid_account')
+    sendgrid_password = self.request.get('sendgrid_password')
 
     logging.debug('/tasks/worker executed: send %d recipients.' % len(recipients))
+    logging.debug('sendgrid_account: %s' % sendgrid_account)
+    logging.debug(recipients)
 
-    list_of_entity = []
-    sendgrid = settings.SENDGRID[schedule.sendgrid_account]
+    self.futures = []
+    sg = SendGridClient(sendgrid_account, sendgrid_password, raise_errors=True)
 
-    logging.debug(str(sendgrid))
-
-    sg = SendGridClient(sendgrid.get('USERNAME'), sendgrid.get('PASSWORD'), raise_errors=True)
     for data in recipients:
       email = data['email']
 
@@ -131,55 +132,69 @@ class WorkHandler(webapp2.RequestHandler):
       message.set_subject(schedule.subject)
       message.set_html(content)
       message.set_from('%s <%s>' % (schedule.sender_name, schedule.sender_email))
+      if schedule.reply_to:
+        message.set_replyto(schedule.reply_to)
       message.add_to(email)
       message.add_category(schedule.category)
 
-      # status = 200
-      # msg = ''
-      logging.debug(message)
-      status, msg = sg.send(message)
+      try:
+        # status = 200
+        # msg = ''
+        status, msg = sg.send(message)
 
-      d = Delorean()
-      if status == 200:
-        log_email = LogEmail(
-          sender='sendgrid',
-          category=schedule.category,
-          to=email,
-          sender_name=schedule.sender_name,
-          sender_email=schedule.sender_email,
-          subject=schedule.subject,
-          body=content,
-          schedule_timestamp=schedule.schedule_timestamp,
-          schedule_display=schedule.schedule_display,
-          when_timestamp=d.epoch(),
-          when_display=d.naive()
-        )
-        # list_of_entity.append(log_email)
+        d = Delorean()
+        if status == 200:
+          self.save_log_email(schedule, email, content, d)
 
-      else:
-        log_send_mail_fail = LogSendEmailFail(
-          sender='sendgrid',
-          category=schedule.category,
-          to=email,
-          sender_name=schedule.sender_name,
-          sender_email=schedule.sender_email,
-          subject=schedule.subject,
-          body=content,
-          schedule_timestamp=schedule.schedule_timestamp,
-          schedule_display=schedule.schedule_display,
-          when_timestamp=d.epoch(),
-          when_display=d.naive(),
-          reason=str(msg)
-        )
-        list_of_entity.append(log_send_mail_fail)
+        else:
+          self.save_fail_log_email(schedule, email, content, d, msg)
 
-        logging.info('%s send fail: %s, %s' % email)
+      except (urlfetch_errors.DeadlineExceededError,
+              urlfetch_errors.ConnectionClosedError,
+              urlfetch_errors.Error,
+              OverQuotaError) as e:
 
-    futures = []
-    futures.extend(ndb.put_multi_async(list_of_entity))
-    ndb.Future.wait_all(futures)
+        self.save_fail_log_email(schedule, email, content, d, e)
+
+    ndb.Future.wait_all(self.futures)
     # TODO refactor
     # if any(f.get_exception() for f in futures):
     # raise ndb.Rollback()
 
 
+  def save_log_email(self, schedule, email, content, d):
+    log_email = LogEmail(
+      sender='sendgrid',
+      category=schedule.category,
+      to=email,
+      reply_to=schedule.reply_to,
+      sender_name=schedule.sender_name,
+      sender_email=schedule.sender_email,
+      subject=schedule.subject,
+      body=content,
+      schedule_timestamp=schedule.schedule_timestamp,
+      schedule_display=schedule.schedule_display,
+      when_timestamp=d.epoch(),
+      when_display=d.naive()
+    )
+    self.futures.extend(ndb.put_multi_async([log_email]))
+
+  def save_fail_log_email(self, schedule, email, content, d, error_msg):
+    log_send_mail_fail = LogSendEmailFail(
+      sender='sendgrid',
+      category=schedule.category,
+      to=email,
+      reply_to=schedule.reply_to,
+      sender_name=schedule.sender_name,
+      sender_email=schedule.sender_email,
+      subject=schedule.subject,
+      body=content,
+      schedule_timestamp=schedule.schedule_timestamp,
+      schedule_display=schedule.schedule_display,
+      when_timestamp=d.epoch(),
+      when_display=d.naive(),
+      reason=str(error_msg)
+    )
+
+    self.futures.extend(ndb.put_multi_async([log_send_mail_fail]))
+    logging.info('%s send fail: %s, %s' % email)
