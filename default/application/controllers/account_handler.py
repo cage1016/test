@@ -28,6 +28,7 @@ class AccountManagementNewAccountHandler(BaseRequestHandler):
     new_email = self.request.get('email')
     new_account_enabled = True if self.request.get('accountEnabled') == 'on' else False
     new_report_enabled = True if self.request.get('reportEnabled') == 'on' else False
+    new_is_admin = True if self.request.get('isAdmin') == 'on' else False
     new_description = self.request.get('description')
 
     auth_id = 'google:%s' % new_email
@@ -45,6 +46,7 @@ class AccountManagementNewAccountHandler(BaseRequestHandler):
         user.email = new_email
         user.account_enabled = new_account_enabled
         user.report_enabled = new_report_enabled
+        user.is_admin = new_is_admin
         user.description = new_description
 
         user.put()
@@ -78,9 +80,11 @@ class AccountManagementEditHandler(BaseRequestHandler):
 
     new_account_enabled = True if self.request.get('accountEnabled') == 'on' else False
     new_report_enabled = True if self.request.get('reportEnabled') == 'on' else False
+    new_is_admin = True if self.request.get('isAdmin') == 'on' else False
 
     user.report_enabled = new_report_enabled
     user.account_enabled = new_account_enabled
+    user.is_admin = new_is_admin
     user.put()
 
     self.redirect('/account_management')
