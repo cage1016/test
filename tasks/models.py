@@ -23,6 +23,7 @@ class RecipientQueueData(ndb.Model):
 class Schedule(ndb.Model):
   sendgrid_account = ndb.StringProperty()
   category = ndb.StringProperty()
+  reply_to = ndb.StringProperty()
 
   # subject
   subject = ndb.StringProperty()
@@ -65,6 +66,7 @@ class LogEmail(ndb.Model):
   to = ndb.StringProperty(required=True)
   subject = ndb.StringProperty(required=True)
   body = ndb.TextProperty()
+  reply_to = ndb.StringProperty()
 
   # inherit from schedule
   schedule_timestamp = ndb.FloatProperty()

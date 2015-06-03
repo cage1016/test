@@ -1,26 +1,50 @@
-import logging
+# coding: utf-8
 
-import io
+import logging
 import csv
 import datetime
 import json
-import re
-
-from delorean import parse
 
 from google.appengine.ext import ndb
-from google.appengine.ext.db import Error
-from apiclient.http import MediaIoBaseDownload
+from GCSIterator import GCSIterator
 
-from utils import ipwarmup_day_sending_rate, time_to_utc
+from delorean import parse
+from utils import sending_rate, time_to_utc, time_add
+import settings
 
 from models import Schedule, RecipientQueueData
-import settings
 
 
 class Parser(object):
+  """
+  Parser object: read csv file from google cloud storage and split recipients by sending rate
+
+  :param
+    sendgrid_account: sendgrid account use to call APIs
+
+    subject: edm subject
+    sender_name: edm sender name, should be comparable with sendgrid account
+    sender_email: edm sender email, should be comparable with sendgrid account
+    category: sendgrid cateogry, use to report query
+    reply_to: optional, reply to
+    type: 'ipwarmup' or '?' (to be done)
+    txt_object_name: receipient list (.csv)
+    edm_object_name: edm html file. (.html)
+    bucket_name: gcs bucket name
+
+    # sending rate parameters
+    schedule_duration: days, it will split to hours
+    ip_counts: how many ip setting up in sendgrid
+    recipient_skip: csv parser offset
+    hour_rate: 1~24. how many hour will execute schedule job. 1/24: split to 24 jobs.
+                                                              1/1: all receipient will send in one housr
+    daily_capacity:
+    start_time: schedule job execute time. Taiwan time UTC+8
+  """
+
+
   @settings.ValidateGCSWithCredential
-  def __init__(self, sendgrid_account, subject, sender_name, sender_email, category, type, txt_object_name,
+  def __init__(self, sendgrid_account, subject, sender_name, sender_email, category, reply_to, type, txt_object_name,
                edm_object_name, bucket_name,
                schedule_duration, ip_counts,
                recipient_skip, hour_rate, start_time, daily_capacity):
@@ -31,6 +55,7 @@ class Parser(object):
     self.sender_name = sender_name
     self.sender_email = sender_email
     self.category = category
+    self.reply_to = reply_to
     self.type = type
     self.txt_object_name = txt_object_name
     self.edm_object_name = edm_object_name
@@ -43,165 +68,140 @@ class Parser(object):
     self.daily_capacity = daily_capacity
 
     self.save_queue = []
-    self.save_queue_size = settings.RECIPIENT_CHENKS_SIZE
+    self.SAVE_QUEUE_SIZE = settings.RECIPIENT_CHENKS_SIZE
     self.save_queue_index = 0
-    self.new_ip_warmup_schedule = None
+    self.new_schedule = None
 
-    self.futures = []
-
-  def read_csv_file(self):
-    """
-    read csv file from Goolge Cloud Storage
-
-    :return: csv array list
-    """
-
-    fh = io.BytesIO()
-    request = self.gcs_service.objects().get_media(bucket=self.bucket_name, object=self.txt_object_name.encode('utf8'))
-    downloader = MediaIoBaseDownload(fh, request, chunksize=settings.CHUNKSIZE)
-    done = False
-    logging.info('Start Downloading %s!' % self.txt_object_name)
-    while not done:
-      status, done = downloader.next_chunk()
-      if status:
-        logging.info('Download %d%%.' % int(status.progress() * 100))
-
-    logging.info('Download done!')
-    
-    return re.split('\r|\n|\r\n', fh.getvalue())
+    self.list_of_rqd = []
+    self.TASKQUEUE_SIZE = 500  # depend on taskqueue send data size limit.
 
   def run(self):
-    # --------
-    # datetime manipuldate
+    """
+    parse CSV file
+    """
+
+    # datetime manipulate
+    # all datastore store datetime as utc time
     d = time_to_utc(self.start_time)
-    # --------
 
     # prepare sending rate
-    # [91,83..]
-    sending_rate = ipwarmup_day_sending_rate(self.schedule_duration,
-                                             self.ip_counts,
-                                             self.hour_rate,
-                                             self.daily_capacity)
-    capacity = sum(sending_rate)
-    logging.info(sending_rate)
+    # [91,83..], 2000 ex
+    job_sending_rate, capacity = sending_rate(self.schedule_duration,
+                                              self.ip_counts,
+                                              self.hour_rate,
+                                              self.daily_capacity)
+    logging.info(job_sending_rate)
     logging.info(capacity)
 
     # prepare csv recipient array
-    csv_array_list = self.read_csv_file()
-    csv_reader = csv.DictReader(csv_array_list)
-
     index_of_hour = 0
     pre_index = -1
-    count = 1
+    count = 0
 
-    for index, row in enumerate(csv_reader):
+    request = self.gcs_service.objects().get_media(bucket=self.bucket_name, object=self.txt_object_name.encode('utf8'))
+    for index, row in enumerate(
+        csv.DictReader(GCSIterator(request, chunksize=settings.CHUNKSIZE), skipinitialspace=True, delimiter=',')):
 
       # break if row index > totoal capacity
       if index >= capacity:
         logging.info('index (%d) > capacity(%d). break parser.' % (index, capacity))
         break
 
-      if index_of_hour + 1 > len(sending_rate):
+      if index_of_hour + 1 > len(job_sending_rate):
         logging.error('custom error: txt length > capacity(%d)' % capacity)
         break
 
       if index_of_hour > pre_index:
-        _d = d.datetime + datetime.timedelta(hours=index_of_hour)
-        _d = parse(_d.strftime('%Y-%m-%d %H:%M:%S'))
+        _d = time_add(d, index_of_hour)
 
-        if sending_rate[index_of_hour] > 0:
-          self.new_ip_warmup_schedule = Schedule()
-          self.new_ip_warmup_schedule.sendgrid_account = self.sendgrid_account
-          self.new_ip_warmup_schedule.subject = self.subject
-          self.new_ip_warmup_schedule.sender_name = self.sender_name
-          self.new_ip_warmup_schedule.sender_email = self.sender_email
-          self.new_ip_warmup_schedule.category = self.category
-          self.new_ip_warmup_schedule.type = self.type
+        if job_sending_rate[index_of_hour] > 0:
+          self.new_schedule = Schedule()
+          self.new_schedule.sendgrid_account = self.sendgrid_account
+          self.new_schedule.subject = self.subject
+          self.new_schedule.sender_name = self.sender_name
+          self.new_schedule.sender_email = self.sender_email
+          self.new_schedule.category = self.category
+          self.new_schedule.type = self.type
 
-          self.new_ip_warmup_schedule.schedule_timestamp = _d.epoch()
-          self.new_ip_warmup_schedule.schedule_display = _d.naive()
+          self.new_schedule.schedule_timestamp = _d.epoch()
+          self.new_schedule.schedule_display = _d.naive()
 
-          self.new_ip_warmup_schedule.hour_delta = (index_of_hour + 1)
-          self.new_ip_warmup_schedule.hour_rate = '1/%dhrs' % self.hour_rate
+          self.new_schedule.hour_delta = (index_of_hour + 1)
+          self.new_schedule.hour_rate = '1/%dhrs' % self.hour_rate
 
-          self.new_ip_warmup_schedule.txt_object_name = self.txt_object_name
-          self.new_ip_warmup_schedule.edm_object_name = self.edm_object_name
-          self.new_ip_warmup_schedule.put()
+          self.new_schedule.txt_object_name = self.txt_object_name
+          self.new_schedule.edm_object_name = self.edm_object_name
+          self.new_schedule.put()
 
         pre_index = index_of_hour
 
       # debug only
       # print index + 1, index_of_hour + 1, count
 
+      # skip check
       if (index + 1) > self.recipient_skip:
+        # how many recipients for each RecipientQueueData entity.
+        if self.save_queue_index >= self.SAVE_QUEUE_SIZE:
+          self.save()
+
         new_recipient_data = {}
         row['global_index'] = index + 1
         row['number_of_hour'] = index_of_hour + 1
         row['inner_index'] = count
         new_recipient_data.update(row)
 
+        self.save_queue_index += 1
         self.save_queue.append(new_recipient_data)
-        self.save_queue_index = self.save_queue_index + 1
 
-        if self.save_queue_index + 1 > self.save_queue_size:
-          error = self.save()
-          if error:
-            logging.error('ipwarmup error occured: %s' % error)
-            break
+        count += 1
 
-        count = count + 1
-
-      if count > sending_rate[index_of_hour]:
+      # force put to taskququ if hour sending rate is full
+      if count >= job_sending_rate[index_of_hour]:
         # update previous hour inner count
-        if sending_rate[index_of_hour] > 0:
-          self.new_ip_warmup_schedule.number_of_sending_mail = count - 1
-          self.new_ip_warmup_schedule.put()
+        if job_sending_rate[index_of_hour] > 0:
+          self.save()
+          self.add_put_task(count)
 
-          error = self.save()
-          if error:
-            logging.error('ipwarmup error occured: %s' % error)
-            break
+          count = 0
 
-          count = 1
         index_of_hour = index_of_hour + 1
 
-      if count % 1000 == 0:
-        logging.info('has been process: %d' % count)
+      # force put to taskqueue if hit max taskququ send data size limit
+      if (count - 1) % self.TASKQUEUE_SIZE == 0 and (count - 1) > 0:
+        self.add_put_task(count - 1)
 
 
-    # check self.save_queue if new_recipient_data < 50
+    # check left self.save_queue have not saved.
     if len(self.save_queue) > 0:
-      error = self.save()
-      if error:
-        logging.error('ipwarmup error occured: %s' % error)
+      self.save()
+      self.add_put_task(count)
 
-    ndb.Future.wait_all(self.futures)
-    logging.info('parser end')
+    logging.info('========== parser job done. ==========')
+
+
+  def add_put_task(self, c):
+    """
+    add put task: really execute save to datastore.
+    """
+
+    ndb.Future.wait_all(self.list_of_rqd)
+    self.new_schedule.put()
+    logging.info('has been process: %d' % c)
+
 
   def save(self):
     """
-    :return:  error:error message
+    pickle recipient list array to RecipientQueueData data property.
+
+    1. when recipeints length >= SAVE_QUEUE_SIZE.
+    2. move to next hourly.
+    3. check last left recipient queue that have not saved.
     """
-    try:
 
-      if len(self.save_queue) > 0:
+    if len(self.save_queue) > 0:
+      rqd = RecipientQueueData(parent=self.new_schedule.key, data=json.dumps(self.save_queue))
+      self.new_schedule.hour_capacity += len(self.save_queue)
+      self.list_of_rqd.extend(ndb.put_multi_async([rqd]))
 
-        rqd = RecipientQueueData(parent=self.new_ip_warmup_schedule.key, data=json.dumps(self.save_queue))
-        self.new_ip_warmup_schedule.hour_capacity += len(self.save_queue)
-        self.futures.extend(ndb.put_multi_async([rqd, self.new_ip_warmup_schedule]))
-
-        self.save_queue = []
-        self.save_queue_index = 0
-
-        return None
-
-      else:
-        self.save_queue = []
-        self.save_queue_index = 0
-        return None
-
-    except Error, error:
       self.save_queue = []
       self.save_queue_index = 0
-
-      return error

@@ -75,8 +75,8 @@ class ScheduleApi(remote.Service):
         hour_delta=model.hour_delta,
         hour_capacity=model.hour_capacity,
         hour_rate=model.hour_rate,
-        txt_object_name=model.txt_object_name,
-        edm_object_name=model.edm_object_name,
+        txt_object_name=model.txt_object_name.split('/')[-1],
+        edm_object_name=model.edm_object_name.split('/')[-1],
         created=c.strftime('%Y-%m-%d %H:%M:%S')
       )
       schedules.append(schedule)
@@ -111,6 +111,7 @@ class ScheduleApi(remote.Service):
       'ip_counts': request.ipCounts,
       'daily_capacity': request.dailyCapacity,
       'category': request.category.encode('utf8'),
+      'reply_to': request.replyTo.encode('utf8'),
       'recipient_skip': request.recipientSkip,
       'start_time': request.startTime.encode('utf8'),
       'hour_rate': request.hourRate,
