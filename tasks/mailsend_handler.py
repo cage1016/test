@@ -137,12 +137,13 @@ class WorkHandler(webapp2.RequestHandler):
       message.add_to(email)
       message.add_category(schedule.category)
 
+
+      d = Delorean()
       try:
         # status = 200
         # msg = ''
         status, msg = sg.send(message)
 
-        d = Delorean()
         if status == 200:
           self.save_log_email(schedule, email, content, d)
 
