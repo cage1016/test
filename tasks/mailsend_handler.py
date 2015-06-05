@@ -13,6 +13,7 @@ from google.appengine.api.taskqueue import taskqueue
 from google.appengine.runtime.apiproxy_errors import OverQuotaError
 from apiclient.http import MediaIoBaseDownload
 
+from sendgrid import SendGridError, SendGridClientError, SendGridServerError
 from sendgrid import SendGridClient
 from sendgrid import Mail
 
@@ -137,7 +138,6 @@ class WorkHandler(webapp2.RequestHandler):
       message.add_to(email)
       message.add_category(schedule.category)
 
-
       d = Delorean()
       try:
         # status = 200
@@ -150,12 +150,17 @@ class WorkHandler(webapp2.RequestHandler):
         else:
           self.save_fail_log_email(schedule, email, content, d, msg)
 
-      except (urlfetch_errors.DeadlineExceededError,
-              urlfetch_errors.ConnectionClosedError,
-              urlfetch_errors.Error,
-              OverQuotaError) as e:
+      except SendGridClientError:
+        logging.error('4xx error: %s' % msg)
+        self.save_fail_log_email(schedule, email, content, d, msg)
 
-        self.save_fail_log_email(schedule, email, content, d, e)
+      except SendGridServerError:
+        logging.error('5xx error: %s' % msg)
+        self.save_fail_log_email(schedule, email, content, d, msg)
+
+      except SendGridError:
+        logging.error('error: %s' % msg)
+        self.save_fail_log_email(schedule, email, content, d, msg)
 
     ndb.Future.wait_all(self.futures)
     # TODO refactor
