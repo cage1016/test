@@ -45,7 +45,7 @@ class Parser(object):
 
   @settings.ValidateGCSWithCredential
   def __init__(self, sendgrid_account, subject, sender_name, sender_email, category, reply_to, type, txt_object_name,
-               edm_object_name, bucket_name,
+               edm_object_name, replace_edm_csv_property, bucket_name,
                schedule_duration, ip_counts,
                recipient_skip, hour_rate, start_time, daily_capacity):
 
@@ -59,6 +59,7 @@ class Parser(object):
     self.type = type
     self.txt_object_name = txt_object_name
     self.edm_object_name = edm_object_name
+    self.replace_edm_csv_property = replace_edm_csv_property
     self.bucket_name = bucket_name
     self.schedule_duration = schedule_duration
     self.ip_counts = ip_counts
@@ -131,6 +132,7 @@ class Parser(object):
 
           self.new_schedule.txt_object_name = self.txt_object_name
           self.new_schedule.edm_object_name = self.edm_object_name
+          self.new_schedule.replace_edm_csv_property = self.replace_edm_csv_property
           self.new_schedule.put()
 
         pre_index = index_of_hour
