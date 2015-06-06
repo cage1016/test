@@ -5,6 +5,7 @@ import logging
 import json
 from delorean import Delorean
 
+from google.appengine import runtime
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch_errors
 from google.appengine.ext import ndb
@@ -161,6 +162,21 @@ class WorkHandler(webapp2.RequestHandler):
       except SendGridError:
         logging.error('error: %s' % msg)
         self.save_fail_log_email(schedule, email, content, d, msg)
+
+      except (
+          taskqueue.Error,
+          runtime.DeadlineExceededError,
+          urlfetch_errors.DeadlineExceededError,
+          runtime.apiproxy_errors.CancelledError,
+          runtime.apiproxy_errors.DeadlineExceededError,
+          runtime.apiproxy_errors.OverQuotaError) as e:
+
+        logging.error('error: %s' % e)
+        self.save_fail_log_email(schedule, email, content, d, e)
+
+      except Exception, e:
+        logging.error('error: %s' % e)
+        self.save_fail_log_email(schedule, email, content, d, e)
 
     ndb.Future.wait_all(self.futures)
     # TODO refactor
