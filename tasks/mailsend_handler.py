@@ -21,7 +21,7 @@ from sendgrid import Mail
 import settings
 from models import Schedule, LogEmail, LogSendEmailFail, RecipientQueueData
 
-from utils import enqueue_task
+from utils import enqueue_task, replace_edm_csv_property
 
 
 class ScheduleHandler(webapp2.RequestHandler):
@@ -129,10 +129,11 @@ class WorkHandler(webapp2.RequestHandler):
 
     for data in recipients:
       email = data['email']
+      content_personal = replace_edm_csv_property(content, data, schedule.replace_edm_csv_property)
 
       message = Mail()
       message.set_subject(schedule.subject)
-      message.set_html(content)
+      message.set_html(content_personal)
       message.set_from('%s <%s>' % (schedule.sender_name, schedule.sender_email))
       if schedule.reply_to:
         message.set_replyto(schedule.reply_to)
