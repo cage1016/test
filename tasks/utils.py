@@ -4,6 +4,7 @@ from delorean import Delorean, parse
 import math
 import datetime
 import logging
+import re
 
 from google.appengine import runtime
 from google.appengine.api.taskqueue import taskqueue
@@ -117,3 +118,30 @@ def enqueue_task(url, queue_name, params=None, payload=None, name=None, transact
       'Problem adding task \'%s\' to task queue \'%s\' (%s): %s',
       url, queue_name, e.__class__.__name__, e)
     return False
+
+
+def replace_edm_csv_property(content, user_data, targets):
+  """
+  replace html content by user defind property with user data
+
+  :param content: html content
+  :param user_data: {u'name': u'User29817', u'FirstName': u'Test', u'Quota': u'0', u'global_index': 18681, u'FirstLogin': u'0', u'LastLogin': u'0', u'number_of_hour': 15, u'inner_index': 1180, u'email': u'user29817@test2.sparapps.us'}
+  :param targets: the html keyword want to replace by user_data. input:name,global_index ex
+  :return: replaced html content
+  """
+
+  if not targets:
+    return content
+
+  # replace user defined keyword by user_data
+  for keyword in targets.split(','):
+    if not user_data.__contains__(keyword):
+      continue
+
+    content = re.sub('{{%s}}' % keyword, str(user_data.get(keyword)), content)
+    # content = re.sub('<?%s?>' % keyword, str(user_data.get(keyword)), content)
+
+  # replace left {{keyword}}
+  content = re.sub('{{.*?}}', '', content)
+
+  return content
