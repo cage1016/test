@@ -135,6 +135,7 @@ class Schedule(ndb.Model):
 
   txt_object_name = ndb.StringProperty()
   edm_object_name = ndb.StringProperty()
+  replace_edm_csv_property = ndb.StringProperty()
 
   recipientQueue = ndb.KeyProperty(kind=RecipientQueueData, repeated=True)
   created = ndb.DateTimeProperty(auto_now_add=True)
