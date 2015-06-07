@@ -44,28 +44,28 @@ class Parser(object):
 
 
   @settings.ValidateGCSWithCredential
-  def __init__(self, sendgrid_account, subject, sender_name, sender_email, category, reply_to, type, txt_object_name,
-               edm_object_name, bucket_name,
-               schedule_duration, ip_counts,
-               recipient_skip, hour_rate, start_time, daily_capacity):
+  def __init__(self, parameters):
 
+    self.sendgrid_account = parameters.get('sendgrid_account')
+    self.subject = parameters.get('subject')
+    self.sender_name = parameters.get('sender_name')
+    self.sender_email = parameters.get('sender_email')
 
-    self.sendgrid_account = sendgrid_account
-    self.subject = subject
-    self.sender_name = sender_name
-    self.sender_email = sender_email
-    self.category = category
-    self.reply_to = reply_to
-    self.type = type
-    self.txt_object_name = txt_object_name
-    self.edm_object_name = edm_object_name
-    self.bucket_name = bucket_name
-    self.schedule_duration = schedule_duration
-    self.ip_counts = ip_counts
-    self.recipient_skip = recipient_skip
-    self.hour_rate = hour_rate
-    self.start_time = start_time
-    self.daily_capacity = daily_capacity
+    self.category = parameters.get('category')
+    self.reply_to = parameters.get('reply_to')
+    self.type = parameters.get('type')
+
+    self.txt_object_name = parameters.get('txt_object_name')
+    self.edm_object_name = parameters.get('edm_object_name')
+    self.bucket_name = parameters.get('bucket_name')
+
+    self.schedule_duration = int(parameters.get('schedule_duration'))
+    self.ip_counts = int(parameters.get('ip_counts'))
+
+    self.recipient_skip = int(parameters.get('recipient_skip'))
+    self.hour_rate = int(parameters.get('hour_rate'))
+    self.start_time = parameters.get('start_time')
+    self.daily_capacity = int(parameters.get('daily_capacity'))
 
     self.save_queue = []
     self.SAVE_QUEUE_SIZE = settings.RECIPIENT_CHENKS_SIZE
