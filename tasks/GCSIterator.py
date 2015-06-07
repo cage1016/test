@@ -16,11 +16,11 @@ class GCSIterator(object):
   Implement Google Cloud Storage csv.DictReader Iterator
   """
 
-  def __init__(self, request, chunksize=DEFAULT_CHUNK_SIZE):
+  def __init__(self, request, progress=0, chunksize=DEFAULT_CHUNK_SIZE):
     self._request = request
     self._uri = request.uri
     self._chunksize = chunksize
-    self._progress = 0
+    self._progress = progress
     self._total_size = None
     self._done = False
 
@@ -30,6 +30,7 @@ class GCSIterator(object):
     self._buffer = None
     self._done = False
 
+    self._bytes_read = 0
 
   def __iter__(self):
     return self
@@ -41,7 +42,6 @@ class GCSIterator(object):
 
       if not self._done:
         self._buffer, self._done = self.read()
-        logging.info('read chunks: %d%%' % int(float(self._progress) / float(self._total_size) * 100))
 
       else:
         self._buffer = ''
@@ -63,6 +63,7 @@ class GCSIterator(object):
     else:
       result = self._lines[self._line_num] + "\n"
 
+    self._bytes_read += len(result)
     self._line_num += 1
 
     return result
@@ -73,6 +74,9 @@ class GCSIterator(object):
       'range': 'bytes=%d-%d' % (
         self._progress, self._progress + self._chunksize)
     }
+    logging.info('read bytes=%d-%d/%s' % (self._progress,
+                                          (self._progress + self._chunksize),
+                                          str(self._total_size) if self._total_size else '*'))
     http = self._request.http
 
     for retry_num in xrange(num_retries + 1):

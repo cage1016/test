@@ -4,6 +4,7 @@ from delorean import Delorean, parse
 import math
 import datetime
 import logging
+import time
 
 from google.appengine import runtime
 from google.appengine.api.taskqueue import taskqueue
@@ -117,3 +118,11 @@ def enqueue_task(url, queue_name, params=None, payload=None, name=None, transact
       'Problem adding task \'%s\' to task queue \'%s\' (%s): %s',
       url, queue_name, e.__class__.__name__, e)
     return False
+
+
+def timeit(function):
+  def _decorated(self, *args, **kwargs):
+    self.ts = time.time()
+    return function(self, *args, **kwargs)
+
+  return _decorated

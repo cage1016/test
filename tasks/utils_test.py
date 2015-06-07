@@ -1,5 +1,7 @@
 import unittest
-from utils import sending_rate
+from utils import sending_rate, timeit
+
+import time
 
 
 class UtilsTest(unittest.TestCase):
@@ -18,6 +20,23 @@ class UtilsTest(unittest.TestCase):
     self.assertEqual([91, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83],
                      rate2)
 
+
+class TimeItTest(unittest.TestCase):
+
+  def test_timeit(self):
+
+    class A(object):
+      @timeit
+      def run(self):
+        time.sleep(5)
+
+    a = A()
+    a.run()
+
+    te = time.time()
+
+    self.assertEqual((te - a.ts).__int__(), 5)
+    self.assertEqual(self.executed_time, 5)
 
 if __name__ == '__main__':
   unittest.main()
