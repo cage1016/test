@@ -3,6 +3,7 @@ import pickle
 import webapp2
 import logging
 import json
+import sys
 from delorean import Delorean
 
 from google.appengine import runtime
@@ -175,8 +176,10 @@ class WorkHandler(webapp2.RequestHandler):
         logging.error('error: %s' % e)
         self.save_fail_log_email(schedule, email, content, d, e)
 
-      except Exception, e:
-        logging.error('error: %s' % e)
+      except:
+        type, e, traceback = sys.exc_info()
+        logging.error('sys.exc_info error: %s' % e)
+
         self.save_fail_log_email(schedule, email, content, d, e)
 
     ndb.Future.wait_all(self.futures)

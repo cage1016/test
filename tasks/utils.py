@@ -5,6 +5,7 @@ import math
 import datetime
 import logging
 import re
+import time
 
 from google.appengine import runtime
 from google.appengine.api.taskqueue import taskqueue
@@ -49,7 +50,9 @@ def hourly_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAIL
 
     if index < HOW_MANY_HOURS_DO_THE_JOB:
       if index == 0:
-        quota[index] = avarage + int(math.fabs(avarage * HOW_MANY_HOURS_DO_THE_JOB - hourly_quota))
+        quota[index] = avarage + \
+                       int(math.fabs(
+                         avarage * HOW_MANY_HOURS_DO_THE_JOB - hourly_quota))
 
       else:
         quota[index] = avarage
@@ -84,7 +87,8 @@ def daily_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPAC
 
 
 def sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPACITY=1000):
-  rate = daily_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
+  rate = daily_sending_rate(
+    days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
 
   return rate, sum(rate)
 
@@ -138,10 +142,21 @@ def replace_edm_csv_property(content, user_data, targets):
     if not user_data.__contains__(keyword):
       continue
 
-    content = re.sub('{{%s}}' % keyword, str(user_data.get(keyword)), content)
+    content = re.sub(
+      '{{%s}}' % keyword, str(user_data.get(keyword)), content)
     # content = re.sub('<?%s?>' % keyword, str(user_data.get(keyword)), content)
 
   # replace left {{keyword}}
   content = re.sub('{{.*?}}', '', content)
 
   return content
+
+
+def timeit(function):
+  def _decorated(self, *args, **kwargs):
+    self.ts = time.time()
+    return function(self, *args, **kwargs)
+
+  return _decorated
+
+

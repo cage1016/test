@@ -1,5 +1,9 @@
 import unittest
+
 from utils import sending_rate, replace_edm_csv_property
+from utils import sending_rate, timeit
+
+import time
 
 
 class UtilsSendingRateTest(unittest.TestCase):
@@ -33,6 +37,22 @@ class UtilsEdmReplaceTest(unittest.TestCase):
     print html_content
 
     self.assertEqual(html_content, '<html><body><p>22222</p><div>User29817</div><body></html>')
+
+
+class TimeItTest(unittest.TestCase):
+  def test_timeit(self):
+    class A(object):
+      @timeit
+      def run(self):
+        time.sleep(5)
+
+    a = A()
+    a.run()
+
+    te = time.time()
+
+    self.assertEqual((te - a.ts).__int__(), 5)
+    self.assertEqual(self.executed_time, 5)
 
 
 if __name__ == '__main__':
