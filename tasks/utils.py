@@ -129,8 +129,8 @@ def replace_edm_csv_property(content, user_data, targets):
   replace html content by user defind property with user data
 
   :param content: html content
-  :param user_data: {u'name': u'User29817', u'FirstName': u'Test', u'Quota': u'0', u'global_index': 18681, u'FirstLogin': u'0', u'LastLogin': u'0', u'number_of_hour': 15, u'inner_index': 1180, u'email': u'user29817@test2.sparapps.us'}
-  :param targets: the html keyword want to replace by user_data. input:name,global_index ex
+  :param user_data: {"gi": 90, "ii": 90, "hr": 0, "email": "xxx@kimo.com", "cmem_num": "1263175"}
+  :param targets: the html keyword want to replace by user_data. <?pid?>:cmem_num,<?sd_id?>:pid ex
   :return: replaced html content
   """
 
@@ -138,16 +138,12 @@ def replace_edm_csv_property(content, user_data, targets):
     return content
 
   # replace user defined keyword by user_data
-  for keyword in targets.split(','):
-    if not user_data.__contains__(keyword):
+  # '<?pid?>:cmem_num,<?sd_id?>:pid' ==> {'<?pid?>': 'cmem_num', '<?sd_id?>': 'pid'}
+  for key, value in dict([s.split(':') for s in targets.split(',')]).items():
+    if not user_data.__contains__(value):
       continue
 
-    content = re.sub(
-      '{{%s}}' % keyword, str(user_data.get(keyword)), content)
-    # content = re.sub('<?%s?>' % keyword, str(user_data.get(keyword)), content)
-
-  # replace left {{keyword}}
-  content = re.sub('{{.*?}}', '', content)
+    content = re.sub(re.escape(key), str(user_data.get(value)), content)
 
   return content
 
