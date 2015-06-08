@@ -223,4 +223,4 @@ class WorkHandler(webapp2.RequestHandler):
     )
 
     self.futures.extend(ndb.put_multi_async([log_send_mail_fail]))
-    logging.info('%s send fail: %s, %s' % email)
+    logging.info('%s send fail: %s' % (email, str(error_msg)))
