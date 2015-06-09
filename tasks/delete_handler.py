@@ -64,3 +64,7 @@ class ScheduleDeleteHandler(webapp2.RequestHandler):
       if count * settings.RECIPIENT_CHENKS_SIZE == schedule.hour_capacity:
         schedule.key.delete()
         logging.info('delete %s finished.' % schedule.subject)
+
+      if count == 0 or (count == 1 and (schedule.hour_capacity <= count * settings.RECIPIENT_CHENKS_SIZE)):
+        schedule.key.delete()
+        logging.info('delete %s finished.' % schedule.subject)
