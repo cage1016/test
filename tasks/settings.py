@@ -19,6 +19,10 @@ RECIPIENT_CHENKS_SIZE = 10
 # 7200 sec = 2 hours
 EDM_CONTENT_MEMCACHE_TIME = 7200
 
+# tasksqueue re-add time limited
+# csv_parser & schedule delete
+MAX_TASKSQUEUE_EXECUTED_TIME = 400
+
 # recipient upload bucket
 BUCKET = 'cheerspoint-recipient'
 
