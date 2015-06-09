@@ -3,6 +3,7 @@
 import pickle
 import webapp2
 import logging
+import settings
 
 from csv_parser import Parser
 
@@ -14,4 +15,4 @@ class ParseCSVHandler(webapp2.RequestHandler):
     logging.info(parameters)
 
     parser = Parser(parameters)
-    parser.run(MAX_TASKSQUEUE_EXECUTED_TIME=400)
+    parser.run(MAX_TASKSQUEUE_EXECUTED_TIME=settings.MAX_TASKSQUEUE_EXECUTED_TIME)

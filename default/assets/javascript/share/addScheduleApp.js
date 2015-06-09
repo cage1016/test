@@ -40,7 +40,8 @@ var addIPWarmupScheduleApp = React.createClass({
         subject: '',
         senderEmail: 'mitac2hr@edm1.micloud.asia',
         senderName: 'mitac2hr',
-        sendgridAccount: 'mitac2hr'
+        sendgridAccount: 'mitac2hr',
+        replaceEdmCSVProperty:'' // 使用者要在 html 置換什麼 csv 的欄位
       };
     },
 
@@ -238,6 +239,13 @@ var addIPWarmupScheduleApp = React.createClass({
               </div>
             </div>
             <div className="form-group">
+              <label for="replaceEdmCSVProperty" className="col-sm-2 control-label">Replace edm with CSV property</label>
+              <div className="col-sm-10">
+                <input type="text" className="form-control" id="replaceEdmCSVProperty" ref="replaceEdmCSVProperty" placeholder="Replace edm with CSV Property" onChange={this._onChange} value={this.state.replaceEdmCSVProperty} required/>
+              </div>
+            </div>
+
+            <div className="form-group">
               <label for="inputPassword3" className="col-sm-2 control-label">Skip</label>
               <div className="col-sm-10">
                 <input type="number" className="form-control" id="recipientSkip" ref="recipientSkip" placeholder="recipientSkip" onChange={this._onChange} value={this.state.recipientSkip} required/>
@@ -274,7 +282,8 @@ var addIPWarmupScheduleApp = React.createClass({
           senderName: this.state.senderName.trim(),
           startTime: this.state.startTime,
           subject: this.state.subject.trim(),
-          type: this.state.type
+          type: this.state.type,
+          replaceEdmCSVProperty: this.state.replaceEdmCSVProperty.trim()
         })
       ).done(function (result) {
           console.log(result);
@@ -350,6 +359,9 @@ var addIPWarmupScheduleApp = React.createClass({
           break;
         case "hourRate":
           this.setState({'hourRate': e.target.value});
+          break;
+        case "replaceEdmCSVProperty":
+          this.setState({'replaceEdmCSVProperty': e.target.value});
           break;
       }
     }

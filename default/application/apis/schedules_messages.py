@@ -22,6 +22,7 @@ class SchedulesResponseMessage(messages.Message):
   created = messages.StringField(10)
   schedule_executed = messages.BooleanField(11)
   sendgrid_account = messages.StringField(12)
+  replace_edm_csv_property = messages.StringField(13)
 
 
 class SchedulesListResponse(messages.Message):
@@ -54,6 +55,7 @@ class SchedulesInsertRequest(messages.Message):
   hourRate = messages.IntegerField(13)
   sendgridAccount = messages.StringField(14)
   replyTo = messages.StringField(15)
+  replaceEdmCSVProperty = messages.StringField(16)
 
 
 class SchedulesInsertResponse(messages.Message):

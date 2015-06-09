@@ -3,6 +3,7 @@ import pickle
 import webapp2
 import logging
 import json
+import sys
 from delorean import Delorean
 
 from google.appengine import runtime
@@ -21,7 +22,8 @@ from sendgrid import Mail
 import settings
 from models import Schedule, LogEmail, LogSendEmailFail, RecipientQueueData
 
-from utils import enqueue_task
+from utils import enqueue_task, replace_edm_csv_property
+from validate_email import validate_email
 
 
 class ScheduleHandler(webapp2.RequestHandler):
@@ -128,40 +130,46 @@ class WorkHandler(webapp2.RequestHandler):
     sg = SendGridClient(sendgrid_account, sendgrid_password, raise_errors=True)
 
     for data in recipients:
+      d = Delorean()
+      content_personal = replace_edm_csv_property(content, data, schedule.replace_edm_csv_property)
+
       email = data['email']
+      is_valid = validate_email(email)
+      if not is_valid:
+        self.save_fail_log_email(schedule, email, content_personal, d, 'manual check: email(%s) is not valid.' % email)
+        continue
 
       message = Mail()
       message.set_subject(schedule.subject)
-      message.set_html(content)
+      message.set_html(content_personal)
       message.set_from('%s <%s>' % (schedule.sender_name, schedule.sender_email))
       if schedule.reply_to:
         message.set_replyto(schedule.reply_to)
       message.add_to(email)
       message.add_category(schedule.category)
 
-      d = Delorean()
       try:
         # status = 200
         # msg = ''
         status, msg = sg.send(message)
 
         if status == 200:
-          self.save_log_email(schedule, email, content, d)
+          self.save_log_email(schedule, email, content_personal, d)
 
         else:
-          self.save_fail_log_email(schedule, email, content, d, msg)
+          self.save_fail_log_email(schedule, email, content_personal, d, msg)
 
       except SendGridClientError:
         logging.error('4xx error: %s' % msg)
-        self.save_fail_log_email(schedule, email, content, d, msg)
+        self.save_fail_log_email(schedule, email, content_personal, d, msg)
 
       except SendGridServerError:
         logging.error('5xx error: %s' % msg)
-        self.save_fail_log_email(schedule, email, content, d, msg)
+        self.save_fail_log_email(schedule, email, content_personal, d, msg)
 
       except SendGridError:
         logging.error('error: %s' % msg)
-        self.save_fail_log_email(schedule, email, content, d, msg)
+        self.save_fail_log_email(schedule, email, content_personal, d, msg)
 
       except (
           taskqueue.Error,
@@ -172,11 +180,13 @@ class WorkHandler(webapp2.RequestHandler):
           runtime.apiproxy_errors.OverQuotaError) as e:
 
         logging.error('error: %s' % e)
-        self.save_fail_log_email(schedule, email, content, d, e)
+        self.save_fail_log_email(schedule, email, content_personal, d, e)
 
-      except Exception, e:
-        logging.error('error: %s' % e)
-        self.save_fail_log_email(schedule, email, content, d, e)
+      except:
+        type, e, traceback = sys.exc_info()
+        logging.error('sys.exc_info error: %s' % e)
+
+        self.save_fail_log_email(schedule, email, content_personal, d, e)
 
     ndb.Future.wait_all(self.futures)
     # TODO refactor

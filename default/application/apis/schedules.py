@@ -77,6 +77,7 @@ class ScheduleApi(remote.Service):
         hour_rate=model.hour_rate,
         txt_object_name=model.txt_object_name.split('/')[-1],
         edm_object_name=model.edm_object_name.split('/')[-1],
+        replace_edm_csv_property=model.replace_edm_csv_property,
         created=c.strftime('%Y-%m-%d %H:%M:%S')
       )
       schedules.append(schedule)
@@ -116,6 +117,7 @@ class ScheduleApi(remote.Service):
       'start_time': request.startTime.encode('utf8'),
       'hour_rate': request.hourRate,
       'sendgrid_account': request.sendgridAccount,
+      'replace_edm_csv_property': request.replaceEdmCSVProperty
     }
 
     logging.info(parameters)

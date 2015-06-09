@@ -155,6 +155,7 @@ var listIPWarmupScheduleApp = React.createClass({
               <ul className="list-unstyled">
                 <li>{job.txt_object_name}</li>
                 <li>{job.edm_object_name}</li>
+                <li>{job.replace_edm_csv_property}</li>
               </ul>
             </td>
             <td>{job.created}</td>
@@ -183,7 +184,7 @@ var listIPWarmupScheduleApp = React.createClass({
               <th>Delta</th>
               <th>Capacity</th>
               <th>Rate</th>
-              <th>Recipient</th>
+              <th>Recipient/edm</th>
               <th>Created</th>
               <th></th>
             </tr>

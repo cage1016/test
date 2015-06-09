@@ -33,6 +33,7 @@ class Parser(object):
     txt_object_name: receipient list (.csv)
     edm_object_name: edm html file. (.html)
     bucket_name: gcs bucket name
+    replace_edm_csv_property: html template replace property ex: <?pid?>:cmem_num,<?sd_id?>:pid
 
     schedule_duration: days, it will split to hours
     ip_counts: how many ip setting up in sendgrid
@@ -69,6 +70,7 @@ class Parser(object):
     self.txt_object_name = parameters.get('txt_object_name')
     self.edm_object_name = parameters.get('edm_object_name')
     self.bucket_name = parameters.get('bucket_name')
+    self.replace_edm_csv_property = parameters.get('replace_edm_csv_property')
 
     self.schedule_duration = int(parameters.get('schedule_duration'))
     self.ip_counts = int(parameters.get('ip_counts'))
@@ -154,6 +156,7 @@ class Parser(object):
 
           self.new_schedule.txt_object_name = self.txt_object_name
           self.new_schedule.edm_object_name = self.edm_object_name
+          self.new_schedule.replace_edm_csv_property = self.replace_edm_csv_property
           self.new_schedule.put()
 
         self.last_hour_index = self.hour_index
@@ -202,6 +205,7 @@ class Parser(object):
                          'txt_object_name': self.txt_object_name,
                          'edm_object_name': self.edm_object_name,
                          'bucket_name': self.bucket_name,
+                         'replace_edm_csv_property': self.replace_edm_csv_property,
 
                          'schedule_duration': self.schedule_duration,
                          'ip_counts': self.ip_counts,

@@ -4,6 +4,7 @@ from delorean import Delorean, parse
 import math
 import datetime
 import logging
+import re
 import time
 
 from google.appengine import runtime
@@ -49,7 +50,9 @@ def hourly_sending_rate(number_of_day, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAIL
 
     if index < HOW_MANY_HOURS_DO_THE_JOB:
       if index == 0:
-        quota[index] = avarage + int(math.fabs(avarage * HOW_MANY_HOURS_DO_THE_JOB - hourly_quota))
+        quota[index] = avarage + \
+                       int(math.fabs(
+                         avarage * HOW_MANY_HOURS_DO_THE_JOB - hourly_quota))
 
       else:
         quota[index] = avarage
@@ -84,7 +87,8 @@ def daily_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPAC
 
 
 def sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB=24, DAILY_CAPACITY=1000):
-  rate = daily_sending_rate(days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
+  rate = daily_sending_rate(
+    days, ip_count, HOW_MANY_HOURS_DO_THE_JOB, DAILY_CAPACITY)
 
   return rate, sum(rate)
 
@@ -120,9 +124,35 @@ def enqueue_task(url, queue_name, params=None, payload=None, name=None, transact
     return False
 
 
+def replace_edm_csv_property(content, user_data, targets):
+  """
+  replace html content by user defind property with user data
+
+  :param content: html content
+  :param user_data: {"gi": 90, "ii": 90, "hr": 0, "email": "xxx@kimo.com", "cmem_num": "1263175"}
+  :param targets: the html keyword want to replace by user_data. <?pid?>:cmem_num,<?sd_id?>:pid ex
+  :return: replaced html content
+  """
+
+  if not targets:
+    return content
+
+  # replace user defined keyword by user_data
+  # '<?pid?>:cmem_num,<?sd_id?>:pid' ==> {'<?pid?>': 'cmem_num', '<?sd_id?>': 'pid'}
+  for key, value in dict([s.split(':') for s in targets.split(',')]).items():
+    if not user_data.__contains__(value):
+      continue
+
+    content = re.sub(re.escape(key), str(user_data.get(value)), content)
+
+  return content
+
+
 def timeit(function):
   def _decorated(self, *args, **kwargs):
     self.ts = time.time()
     return function(self, *args, **kwargs)
 
   return _decorated
+
+
