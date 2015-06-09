@@ -41,11 +41,11 @@ class ScheduleHandler(webapp2.RequestHandler):
 
       logging.info('job schedule found!!, categroy:%s, hour_capacity= %d' % (job.category, job.hour_capacity))
 
-      taskqueue.add(url='/tasks/mailer',
-                    params={
-                      'jkey': job.key.urlsafe()
-                    },
-                    queue_name='mailer')
+      enqueue_task(url='/tasks/mailer',
+                   params={
+                     'jkey': job.key.urlsafe()
+                   },
+                   queue_name='mailer')
 
 
 class MailerHandler(webapp2.RequestHandler):
@@ -225,7 +225,8 @@ class WorkHandler(webapp2.RequestHandler):
       schedule_display=schedule.schedule_display,
       when_timestamp=d.epoch(),
       when_display=d.naive(),
-      reason=str(error_msg)
+      reason=str(error_msg),
+      sendgrid_account=schedule.sendgrid_account
     )
 
     self.futures.extend(ndb.put_multi_async([log_send_mail_fail]))

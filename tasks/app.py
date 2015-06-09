@@ -3,6 +3,7 @@ import logging
 from parser_handler import ParseCSVHandler
 from mailsend_handler import *
 from delete_handler import *
+from failmail_handler import *
 
 
 class TasksHandler(webapp2.RequestHandler):
@@ -21,6 +22,10 @@ routes = [
 
   (r'/tasks/delete_resources', GCSResourcesDeleteHandler),
   (r'/tasks/delete_schedule', ScheduleDeleteHandler),
+
+  (r'/tasks/fail_check', FailMailCheckHandler),
+  (r'/tasks/fail_resend', FailMailResendWorkHandler),
+  (r'/tasks/failmail_delete', FailMailDeleteWorkHandler),
 
   (r'/.*', TasksHandler)
 ]
