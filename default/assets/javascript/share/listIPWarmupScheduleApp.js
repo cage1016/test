@@ -67,11 +67,36 @@ var Filter = React.createClass({
     this.setState({'categories': evt.target.value});
   },
 
-  _onClick: function(evt){
+  _onClick: function (evt) {
     evt.stopPropagation();
     evt.preventDefault();
 
     this.props.filter(this.state.categories);
+  }
+});
+
+var ResourceList = React.createClass({
+  render: function () {
+    var items = [];
+
+    items.push(<li>
+      <code>{this.props.job.txt_object_name}</code>
+    </li>);
+    items.push(<li>
+      <code>{this.props.job.edm_object_name}</code>
+    </li>);
+
+    if (this.props.job.replace_edm_csv_property) {
+      items.push(<li>
+        <code>{this.props.job.replace_edm_csv_property}</code>
+      </li>);
+    }
+
+    return (
+      <ul className="list-unstyled">
+      {items}
+      </ul>
+    );
   }
 });
 
@@ -152,11 +177,7 @@ var listIPWarmupScheduleApp = React.createClass({
             <td>{job.hour_capacity}</td>
             <td>{job.hour_rate}</td>
             <td>
-              <ul className="list-unstyled">
-                <li>{job.txt_object_name}</li>
-                <li>{job.edm_object_name}</li>
-                <li>{job.replace_edm_csv_property}</li>
-              </ul>
+              <ResourceList job={job} />
             </td>
             <td>{job.created}</td>
             <td>
