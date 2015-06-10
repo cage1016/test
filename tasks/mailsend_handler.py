@@ -25,8 +25,11 @@ class ScheduleHandler(webapp2.RequestHandler):
 
     logging.info('match schedule_timestamp query = %f' % now.epoch())
 
-    # jobs = Schedule.query(Schedule.schedule_timestamp == now.epoch()).fetch()
-    jobs = Schedule.query(Schedule.schedule_timestamp == 1432634400.0).fetch()
+    if settings.DEBUG:
+      jobs = Schedule.query(Schedule.schedule_timestamp == 1432634400.0).fetch()
+      
+    else:
+      jobs = Schedule.query(Schedule.schedule_timestamp == now.epoch()).fetch()
 
     for job in jobs:
       job.schedule_executed = True

@@ -3,7 +3,6 @@
 import sys
 import logging
 import pickle
-import time
 from delorean import Delorean
 from validate_email import validate_email
 
@@ -41,19 +40,21 @@ class MiMailClient(object):
 
       # prepare log data
       log = {}
-      log.update(category=schedule.category,
-                 to=recipient['email'],
-                 reply_to=schedule.reply_to,
-                 sender_name=schedule.sender_name,
-                 sender_email=schedule.sender_email,
-                 subject=schedule.subject,
-                 body=replace_edm_csv_property(content, recipient, schedule.replace_edm_csv_property),
-                 schedule_timestamp=schedule.schedule_timestamp,
-                 schedule_display=schedule.schedule_display,
-                 when_timestamp=d.epoch(),
-                 when_display=d.naive(),
-                 sendgrid_account=schedule.sendgrid_account
-                 )
+      log.update(
+        sender=self.sender,
+        category=schedule.category,
+        to=recipient['email'],
+        reply_to=schedule.reply_to,
+        sender_name=schedule.sender_name,
+        sender_email=schedule.sender_email,
+        subject=schedule.subject,
+        body=replace_edm_csv_property(content, recipient, schedule.replace_edm_csv_property),
+        schedule_timestamp=schedule.schedule_timestamp,
+        schedule_display=schedule.schedule_display,
+        when_timestamp=d.epoch(),
+        when_display=d.naive(),
+        sendgrid_account=schedule.sendgrid_account
+      )
 
       is_valid = validate_email(log.get('to'))
       if not is_valid:
@@ -89,20 +90,22 @@ class MiMailClient(object):
 
       # prepare log data
       log = {}
-      log.update(category=fail_email.category,
-                 to=fail_email.to,
-                 reply_to=fail_email.reply_to,
-                 sender_name=fail_email.sender_name,
-                 sender_email=fail_email.sender_email,
-                 subject=fail_email.subject,
-                 body=fail_email.body,
-                 schedule_timestamp=fail_email.schedule_timestamp,
-                 schedule_display=fail_email.schedule_display,
-                 when_timestamp=fail_email.when_timestamp,
-                 when_display=fail_email.when_display,
-                 sendgrid_account=fail_email.sendgrid_account,
-                 reason=fail_email.reason
-                 )
+      log.update(
+        sender=self.sender,
+        category=fail_email.category,
+        to=fail_email.to,
+        reply_to=fail_email.reply_to,
+        sender_name=fail_email.sender_name,
+        sender_email=fail_email.sender_email,
+        subject=fail_email.subject,
+        body=fail_email.body,
+        schedule_timestamp=fail_email.schedule_timestamp,
+        schedule_display=fail_email.schedule_display,
+        when_timestamp=fail_email.when_timestamp,
+        when_display=fail_email.when_display,
+        sendgrid_account=fail_email.sendgrid_account,
+        reason=fail_email.reason
+      )
 
       message = Mail()
       message.set_subject(log.get('subject'))
