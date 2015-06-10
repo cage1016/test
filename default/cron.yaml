@@ -2,3 +2,7 @@ cron:
 - description: check email schedule job
   url: /tasks/schedule
   schedule: every 1 mins
+
+- description: check fail email and resend
+  url: /tasks/fail_check
+  schedule: every 5 mins

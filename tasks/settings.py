@@ -1,8 +1,14 @@
+import os
 import httplib2
 from google.appengine.api import memcache
 from apiclient.discovery import build
 from oauth2client.appengine import AppAssertionCredentials
 
+
+if os.environ.get('SERVER_SOFTWARE', '').startswith('Development'):
+  DEBUG = True
+else:
+  DEBUG = False
 
 DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
 
@@ -32,7 +38,7 @@ BUCKET = 'cheerspoint-recipient'
 # }
 
 SENDGRID = {
-  'kaichu':{
+  'kaichu': {
     'USERNAME': 'kaichu',
     'PASSWORD': '@75dkyz9n',
   },
