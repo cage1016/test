@@ -94,16 +94,16 @@ class FailMailResendWorkHandler(webapp2.RequestHandler):
 
           self.save_fail_log_email(fail_email, d, e)
 
+      if self.futures:
+        ndb.Future.wait_all(self.futures)
+        pop_future_done(self.futures)
+
       if fail_emails:
         enqueue_task(url='/tasks/failmail_delete',
                      params={
                        'keys': pickle.dumps([f.key for f in fail_emails])
                      },
                      queue_name='failmail-delete')
-
-      if self.futures:
-        ndb.Future.wait_all(self.futures)
-        pop_future_done(self.futures)
 
       if (time.time() - self.ts).__int__() > settings.MAX_TASKSQUEUE_EXECUTED_TIME:
         enqueue_task(url='/tasks/fail_resend',
@@ -124,7 +124,8 @@ class FailMailResendWorkHandler(webapp2.RequestHandler):
       schedule_display=fail_email.schedule_display,
       when_timestamp=d.epoch(),
       when_display=d.naive(),
-      action='resend'
+      action='resend',
+      sendgrid_account=fail_email.sendgrid_account
     )
     self.futures.extend(ndb.put_multi_async([log_email]))
 
@@ -154,4 +155,12 @@ class FailMailDeleteWorkHandler(webapp2.RequestHandler):
   @ndb.toplevel
   def post(self):
     keys = pickle.loads(self.request.get('keys'))
-    yield ndb.delete_multi_async(keys=keys)
+
+    for fail_email in ndb.get_multi(keys=keys):
+      logging.info('sendgrid_account: %s, subject: %s, category: %s' % (fail_email.sendgrid_account,
+                                                                        fail_email.subject,
+                                                                        fail_email.category))
+      logging.info('email: %s' % fail_email.to)
+      logging.info('retry reason: %s' % fail_email.reason)
+
+      yield ndb.delete_multi_async(keys=keys)
