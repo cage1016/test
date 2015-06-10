@@ -123,7 +123,8 @@ class WorkHandler(webapp2.RequestHandler):
     sendgrid_password = self.request.get('sendgrid_password')
 
     logging.debug('/tasks/worker executed: send %d recipients.' % len(recipients))
-    logging.debug('sendgrid_account: %s' % sendgrid_account)
+    logging.debug(
+      'sendgrid_account: %s, subject:%s, category: %s' % (sendgrid_account, schedule.subject, schedule.category))
     logging.debug(recipients)
 
     self.futures = []
@@ -207,7 +208,8 @@ class WorkHandler(webapp2.RequestHandler):
       schedule_timestamp=schedule.schedule_timestamp,
       schedule_display=schedule.schedule_display,
       when_timestamp=d.epoch(),
-      when_display=d.naive()
+      when_display=d.naive(),
+      sendgrid_account=schedule.sendgrid_account
     )
     self.futures.extend(ndb.put_multi_async([log_email]))
 

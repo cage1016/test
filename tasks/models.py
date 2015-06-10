@@ -77,6 +77,7 @@ class LogEmail(ndb.Model):
   when_display = ndb.DateTimeProperty()
 
   created = ndb.DateTimeProperty(auto_now_add=True)
+  sendgrid_account = ndb.StringProperty()
   action = ndb.StringProperty()
 
   def get_id(self):
@@ -85,7 +86,6 @@ class LogEmail(ndb.Model):
 
 class LogSendEmailFail(LogEmail):
   reason = ndb.StringProperty(required=True)
-  sendgrid_account = ndb.StringProperty()
 
   def get_id(self):
     return self._key.id()
