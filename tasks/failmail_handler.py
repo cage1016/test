@@ -5,7 +5,7 @@ import time
 
 from google.appengine.ext import ndb
 from datastore_utils import page_queries
-from models import LogSendEmailFail
+from models import LogFailEmail
 
 from utils import timeit, enqueue_task
 from mimail_client import MiMailClient
@@ -15,7 +15,7 @@ import settings
 
 class FailMailCheckHandler(webapp2.RequestHandler):
   def get(self):
-    if LogSendEmailFail.query().get() is not None:
+    if LogFailEmail.query().get() is not None:
       enqueue_task(url='/tasks/fail_resend', queue_name='failmail-resend')
 
 
@@ -24,7 +24,7 @@ class FailMailResendWorkHandler(webapp2.RequestHandler):
   @timeit
   def post(self):
     queries = [
-      LogSendEmailFail.query()
+      LogFailEmail.query()
     ]
 
     mimail_client = MiMailClient()

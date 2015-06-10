@@ -16,7 +16,7 @@ from sendgrid import SendGridError, SendGridClientError, SendGridServerError
 from sendgrid import SendGridClient
 from sendgrid import Mail
 
-from models import LogEmail, LogSendEmailFail
+from models import LogEmail, LogFailEmail
 from utils import replace_edm_csv_property, enqueue_task
 from datastore_utils import pop_future_done
 
@@ -190,7 +190,7 @@ class MiMailClient(object):
     self.futures.extend(ndb.put_multi_async([log_email]))
 
   def save_fail(self, log):
-    log_fail_email = LogSendEmailFail(
+    log_fail_email = LogFailEmail(
       sender=log.get('sender'),
       category=log.get('category'),
       to=log.get('to'),

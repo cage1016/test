@@ -84,7 +84,7 @@ class LogEmail(ndb.Model):
     return self._key.id()
 
 
-class LogSendEmailFail(LogEmail):
+class LogFailEmail(LogEmail):
   reason = ndb.StringProperty(required=True)
 
   def get_id(self):
