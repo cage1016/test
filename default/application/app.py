@@ -32,7 +32,12 @@ app_config = {
 
 class MainHandler(BaseRequestHandler):
   def get(self):
-    self.render('index.html')
+
+    if self.logged_in:
+      self.render('index.html')
+
+    else:
+      self.render('welcome.html')
 
 
 class Webapp2HandlerAdapter(webapp2.BaseHandlerAdapter):
@@ -61,7 +66,7 @@ routes.extend(ip_warmup_route)
 
 router = webapp2.WSGIApplication(routes, config=app_config, debug=True)
 
-# router.error_handlers[404] = Webapp2HandlerAdapter(Handle404)
+router.error_handlers[404] = Webapp2HandlerAdapter(Handle404)
 router.error_handlers[403] = Webapp2HandlerAdapter(Handle403)
 # router.error_handlers[500] = Webapp2HandlerAdapter(Handle500)
 

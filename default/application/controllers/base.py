@@ -83,7 +83,7 @@ class BaseRequestHandler(webapp2.RequestHandler):
   @webapp2.cached_property
   def logged_in(self):
     """Returns true if a user is currently logged in, false otherwise"""
-    return 'credential' not in self.session
+    return 'credential' in self.session
 
   @webapp2.cached_property
   def jinja2(self):
@@ -114,7 +114,7 @@ class BaseRequestHandler(webapp2.RequestHandler):
     template_vars['state'] = state
 
     # Pass login url
-    if state != '403':
+    if state != '403' and state != '404' and state != 'welcome_404':
       template_vars['login_url'] = self.CreateLogInUrl(state)
       template_vars['user'] = self.user
 
@@ -209,7 +209,8 @@ class OAuth2CallbackHandler(BaseRequestHandler):
           self.session['user'] = pickle.dumps(user.to_dict())
           self.session['credential'] = pickle.dumps(credential)
 
-        self.redirect('/' + (self.request.GET.get('state') or ''))
+        # self.redirect('/' + (self.request.GET.get('state') or ''))
+        self.redirect('/')
 
 
 class LogOutHandler(BaseRequestHandler):
