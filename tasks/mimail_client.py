@@ -139,19 +139,23 @@ class MiMailClient(object):
         self.save(log)
 
       else:
-        self.save_fail(log, msg)
+        log.update(reason=msg)
+        self.save_fail(log)
 
     except SendGridClientError:
       logging.error('4xx error: %s' % msg)
-      self.save_fail(log, msg)
+      log.update(reason=msg)
+      self.save_fail(log)
 
     except SendGridServerError:
       logging.error('5xx error: %s' % msg)
-      self.save_fail(log, msg)
+      log.update(reason=msg)
+      self.save_fail(log)
 
     except SendGridError:
       logging.error('error: %s' % msg)
-      self.save_fail(log, msg)
+      log.update(reason=msg)
+      self.save_fail(log)
 
     except (
         taskqueue.Error,
@@ -162,13 +166,16 @@ class MiMailClient(object):
         runtime.apiproxy_errors.OverQuotaError) as e:
 
       logging.error('error: %s' % e)
-      self.save_fail(log, e)
+
+      log.update(reason=str(e))
+      self.save_fail(log)
 
     except:
       type, e, traceback = sys.exc_info()
       logging.error('sys.exc_info error: %s' % e)
 
-      self.save_fail(log, e)
+      log.update(reason=str(e))
+      self.save_fail(log)
 
 
   def save(self, log):
