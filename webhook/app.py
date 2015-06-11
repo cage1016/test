@@ -3,10 +3,14 @@
 import logging
 import webapp2
 import json
-import re
+import time
+import pickle
 
-from google.appengine.api.taskqueue import taskqueue
+from google.appengine.ext import ndb
 from models import FlexWebhook
+
+from utils import enqueue_task, timeit, grouper
+import settings
 
 
 class WebhookHandler(webapp2.RequestHandler):
@@ -15,41 +19,51 @@ class WebhookHandler(webapp2.RequestHandler):
     self.response.write("Welcome to the webhook module.")
 
   def post(self):
-    taskqueue.add(url='/worker',
-                  params={
-                    'body': self.request.body
-                  },
-                  queue_name='webhook')
+    events = json.loads(self.request.body)
+    logging.info(events)
+    enqueue_task(url='/parse',
+                 queue_name='parse',
+                 params={
+                   'events': pickle.dumps(events)
+                 })
+
+
+# https://cloud.google.com/bigquery/streaming-data-into-bigquery
+class WebookParserHandler(webapp2.RequestHandler):
+  @timeit
+  def post(self):
+    events = pickle.loads(self.request.get('events'))
+
+    for chunks in grouper(events, settings.EVENT_CHUNKS):
+      enqueue_task(url='/worker',
+                   queue_name='webhook',
+                   params={
+                     'entities': pickle.dumps(map(lambda chunk: FlexWebhook.new(chunk), chunks))
+                   })
+
+      for c in chunks:
+        events.remove(c)
+
+      if (time.time() - self.ts).__int__() > settings.MAX_TASKSQUEUE_EXECUTED_TIME:
+        enqueue_task(url='/parse',
+                     queue_name='parse',
+                     params={
+                       'events': pickle.dumps(events)
+                     })
+
+        break
 
 
 class WebookParserWorkerHandler(webapp2.RequestHandler):
+  @ndb.toplevel
   def post(self):
-
-    events = json.loads(self.request.get('body'))
-
-    logging.info('items= ' + str(events))
-
-    for event in events:
-      webhook = FlexWebhook()
-
-      for key, value in event.items():
-        if key == 'smtp-id':
-          m = re.search(r'<(.*)>', value)
-          webhook.populate(**{key: m.group(1)})
-
-        else:
-          webhook.populate(**{key: value})
-
-      webhook.put()
-
-
-class QueryHandler(webapp2.RequestHandler):
-  def get(self):
-    self.response.write("Welcome to the webhook module. query TODO.")
+    entities = pickle.loads(self.request.get('entities'))
+    logging.info(entities)
+    yield ndb.put_multi_async(entities=entities)
 
 
 routes = [
-  (r'/query', QueryHandler),
+  (r'/parse', WebookParserHandler),
   (r'/worker', WebookParserWorkerHandler),
   (r'/', WebhookHandler)
 ]
