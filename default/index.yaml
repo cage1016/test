@@ -10,6 +10,35 @@ indexes:
 # automatically uploaded to the admin console when you next deploy
 # your application using appcfg.py.
 
+- kind: LogEmail
+  properties:
+  - name: action
+  - name: category
+  - name: to
+  - name: created
+    direction: desc
+
+- kind: LogEmail
+  properties:
+  - name: action
+  - name: created
+    direction: desc
+
+- kind: LogEmail
+  properties:
+  - name: action
+  - name: sendgrid_account
+  - name: to
+  - name: created
+    direction: desc
+
+- kind: LogEmail
+  properties:
+  - name: action
+  - name: to
+  - name: created
+    direction: desc
+
 - kind: Recipient
   ancestor: yes
   properties:
@@ -63,33 +92,4 @@ indexes:
   - name: created
     direction: desc
   - name: __key__
-    direction: desc
-
-- kind: LogEmail
-  properties:
-  - name: action
-  - name: category
-  - name: to
-  - name: created
-    direction: desc
-
-- kind: LogEmail
-  properties:
-  - name: action
-  - name: created
-    direction: desc
-
-- kind: LogEmail
-  properties:
-  - name: action
-  - name: sendgrid_account
-  - name: to
-  - name: created
-    direction: desc
-
-- kind: LogEmail
-  properties:
-  - name: action
-  - name: to
-  - name: created
     direction: desc
