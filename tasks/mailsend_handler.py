@@ -1,3 +1,5 @@
+# coding: utf8
+
 import io
 import pickle
 import webapp2
@@ -32,11 +34,7 @@ class ScheduleHandler(webapp2.RequestHandler):
       jobs = Schedule.query(Schedule.schedule_timestamp == now.epoch()).fetch()
 
     for job in jobs:
-      job.schedule_executed = True
-      job.put()
-
       logging.info('job schedule found!!, categroy:%s, hour_capacity= %d' % (job.category, job.hour_capacity))
-
       enqueue_task(url='/tasks/mailer',
                    params={
                      'jkey': job.key.urlsafe()
@@ -70,6 +68,8 @@ class MailerHandler(webapp2.RequestHandler):
     skey = self.request.get('jkey')
 
     schedule_job = ndb.Key(urlsafe=skey).get()
+    schedule_job.schedule_executed = True
+    schedule_job.put()
 
     if schedule_job:
       logging.info('execute %s @ %s' % (schedule_job.category, schedule_job.schedule_display))
