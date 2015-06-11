@@ -141,6 +141,7 @@ var addIPWarmupScheduleApp = React.createClass({
                   <option value="mitacmax">Cheerspoint:mitac-max</option>
                   <option value="mitacwarmup1">Cheerspoint:mitac-warmup1</option>
                   <option value="mitacwarmup2">Cheerspoint:mitac-warmup2</option>
+                  <option value="mitacsymphox">mitac-symphox (神坊主帳號)</option>
                 </select>
               </div>
             </div>
@@ -317,6 +318,10 @@ var addIPWarmupScheduleApp = React.createClass({
             case "mitacwarmup2":
               this.setState({'senderEmail': 'mitacwarmup2@em.micloud.asia'});
               this.setState({'senderName': 'mitacwarmup2'});
+              break;
+            case "mitacsymphox":
+              this.setState({'senderEmail': 'treemall@mda.treemall.com.tw'});
+              this.setState({'senderName': 'mitacsymphox'});
               break;
           }
 
