@@ -28,10 +28,10 @@ class ScheduleHandler(webapp2.RequestHandler):
     logging.info('match schedule_timestamp query = %f' % now.epoch())
 
     if settings.DEBUG:
-      jobs = Schedule.query(Schedule.schedule_timestamp == 1432634400.0).fetch()
-      
+      jobs = Schedule.query(Schedule.schedule_timestamp == 1432634400.0, Schedule.error == None).fetch()
+
     else:
-      jobs = Schedule.query(Schedule.schedule_timestamp == now.epoch()).fetch()
+      jobs = Schedule.query(Schedule.schedule_timestamp == now.epoch(), Schedule.error == None).fetch()
 
     for job in jobs:
       logging.info('job schedule found!!, categroy:%s, hour_capacity= %d' % (job.category, job.hour_capacity))
