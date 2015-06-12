@@ -1,10 +1,13 @@
 # coding: utf-8
 
+import io
 import logging
 import csv
 import json
 import time
 import pickle
+from apiclient.http import MediaIoBaseDownload
+from google.appengine.api import memcache
 
 from google.appengine.ext import ndb
 from utils import enqueue_task
@@ -97,6 +100,26 @@ class Parser(object):
     self.list_of_rqd = []
     self.TASKQUEUE_SIZE = 500  # depend on taskqueue send data size limit.
 
+  def read_edm_file(self, edm_object_name):
+    data = memcache.get(edm_object_name)
+    if data is not None:
+      return data
+
+    else:
+      fh = io.BytesIO()
+      request = self.gcs_service.objects().get_media(bucket=settings.BUCKET, object=edm_object_name.encode('utf8'))
+      downloader = MediaIoBaseDownload(fh, request, chunksize=settings.CHUNKSIZE)
+      done = False
+      while not done:
+        status, done = downloader.next_chunk()
+        if status:
+          logging.info('Download %d%%.' % int(status.progress() * 100))
+        logging.info('Download %s Complete!' % edm_object_name)
+
+      data = fh.getvalue()
+      memcache.add(edm_object_name, data, settings.EDM_CONTENT_MEMCACHE_TIME)
+      return data
+
   @timeit
   def run(self, MAX_TASKSQUEUE_EXECUTED_TIME=500):
     """
@@ -128,7 +151,15 @@ class Parser(object):
       self.csv_reader = csv.DictReader(self.gcs_iterator, skipinitialspace=True, delimiter=',')
 
     try:
+      # check edm content
+      try:
+        content = self.read_edm_file(self.edm_object_name)
+        test_ = unicode(content, 'utf8')
 
+      except Exception as e:
+        raise ValueError('%s encode utf8 error.' % self.edm_object_name)
+
+      # start parse csv
       for i, row in enumerate(self.csv_reader):
         index = self.init_index + i
 
