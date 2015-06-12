@@ -97,7 +97,7 @@ class MailerHandler(webapp2.RequestHandler):
             enqueue_task(url='/tasks/worker', queue_name='worker', params=params)
 
           if index % 2 == 1:
-            enqueue_task(url='/tasks/worker2', queue_name='worker', params=params)
+            enqueue_task(url='/tasks/worker2', queue_name='worker2', params=params)
 
         if more and next_curs:
           cursor = next_curs.urlsafe()

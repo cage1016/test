@@ -63,6 +63,14 @@ class GCSIterator(object):
     else:
       result = self._lines[self._line_num] + "\n"
 
+    # check csv header
+    if self._bytes_read == 0:
+      if not re.match('email', result.lower().replace('"','')):
+        raise ValueError('csv header must contain "email or EMAIL" property.')
+
+      else:
+        result = result.lower()
+
     self._bytes_read += len(result)
     self._line_num += 1
 
