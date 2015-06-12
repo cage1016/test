@@ -23,9 +23,9 @@ routes = [
   (r'/tasks/delete_resources', GCSResourcesDeleteHandler),
   (r'/tasks/delete_schedule', ScheduleDeleteHandler),
 
-  (r'/tasks/fail_check', FailMailCheckHandler),
-  (r'/tasks/fail_resend', FailMailResendWorkHandler),
-  (r'/tasks/failmail_delete', FailMailDeleteWorkHandler),
+  (r'/tasks/retry_check', RetryCheckHandler),
+  (r'/tasks/retry_resend', RetrySendWorkHandler),
+  (r'/tasks/retry_delete', RetryDeleteWorkHandler),
 
   (r'/.*', TasksHandler)
 ]

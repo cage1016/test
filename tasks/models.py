@@ -90,8 +90,29 @@ class LogEmail(ndb.Model):
 class LogFailEmail(LogEmail):
   reason = ndb.StringProperty(required=True)
 
-  def get_id(self):
-    return self._key.id()
+  def _post_put_hook(self, future):
+    """
+    assign failemail to try and keep logFailEmail
+    :param future:
+    """
+
+    self_key = future.get_result()
+
+    @ndb.transactional_tasklet
+    def update_changed(self_key):
+      schedule_key = self_key.parent()
+      reTry = ReTry(parent=schedule_key)
+      reTry.failEmail = self_key
+
+      yield ndb.put_multi_async([reTry])
+
+    ndb.Future.wait_all([
+      update_changed(self_key)
+    ])
+
+
+class ReTry(ndb.Model):
+  failEmail = ndb.KeyProperty(kind='LogFailEmail', required=True)
 
 
 class InvalidEmails(ndb.Model):
