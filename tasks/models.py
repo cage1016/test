@@ -37,6 +37,8 @@ class Schedule(ndb.Model):
   hour_delta = ndb.IntegerProperty(default=0)
   # 每個小時發的容量
   hour_capacity = ndb.IntegerProperty(default=0)
+  # invalid email
+  invalid_email = ndb.IntegerProperty(default=0)
   # 預設是將每天的量分成24小時間來發，
   # default: 1/24hrs, 如果前5個小時要發完 1/5hrs
   hour_rate = ndb.StringProperty()
@@ -53,6 +55,7 @@ class Schedule(ndb.Model):
   replace_edm_csv_property = ndb.StringProperty()
 
   recipientQueue = ndb.KeyProperty(kind=RecipientQueueData, repeated=True)
+  error = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
 
 
@@ -89,3 +92,28 @@ class LogFailEmail(LogEmail):
 
   def get_id(self):
     return self._key.id()
+
+
+class InvalidEmails(ndb.Model):
+  sendgrid_account = ndb.StringProperty()
+  category = ndb.StringProperty()
+  schedule_subject = ndb.StringProperty()
+  schedule_display = ndb.DateTimeProperty()
+  email = ndb.StringProperty()
+  hour_rate = ndb.StringProperty()
+  gi = ndb.IntegerProperty(default=0)
+  hr = ndb.IntegerProperty(default=0)
+  created = ndb.DateTimeProperty(auto_now_add=True)
+
+  @classmethod
+  def new(cls, ancestor_key, row):
+    invalid_email = InvalidEmails(parent=ancestor_key)
+    invalid_email.sendgrid_account = row.get('sendgrid_account')
+    invalid_email.category = row.get('category')
+    invalid_email.schedule_subject = row.get('schedule_subject')
+    invalid_email.schedule_display = row.get('schedule_display')
+    invalid_email.email = row.get('email')
+    invalid_email.gi = int(row.get('gi'))
+    invalid_email.hr = int(row.get('hr'))
+
+    return invalid_email
