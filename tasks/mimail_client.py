@@ -84,28 +84,28 @@ class MiMailClient(object):
     """
 
     retries_keys = [retry.key for retry in retries]
-    for email in ndb.get_multi([retry.failEmail for retry in retries]):
-      d = Delorean()
-      sendgrid = settings.SENDGRID[email.sendgrid_account]
+    for fail_log in ndb.get_multi([retry.failEmail for retry in retries]):
+      sendgrid = settings.SENDGRID[fail_log.sendgrid_account]
 
       self.set_sendgrid_client(sendgrid['USERNAME'], sendgrid['PASSWORD'])
 
       # prepare log data
       log = {}
       log.update(
+        fail_log_key=fail_log.key,
         sender=self.sender,
-        category=email.category,
-        to=email.to,
-        reply_to=email.reply_to,
-        sender_name=email.sender_name,
-        sender_email=email.sender_email,
-        subject=email.subject,
-        body=email.body,
-        schedule_timestamp=email.schedule_timestamp,
-        schedule_display=email.schedule_display,
-        when_timestamp=email.when_timestamp,
-        when_display=email.when_display,
-        sendgrid_account=email.sendgrid_account
+        category=fail_log.category,
+        to=fail_log.to,
+        reply_to=fail_log.reply_to,
+        sender_name=fail_log.sender_name,
+        sender_email=fail_log.sender_email,
+        subject=fail_log.subject,
+        body=fail_log.body,
+        schedule_timestamp=fail_log.schedule_timestamp,
+        schedule_display=fail_log.schedule_display,
+        when_timestamp=fail_log.when_timestamp,
+        when_display=fail_log.when_display,
+        sendgrid_account=fail_log.sendgrid_account
       )
 
       message = Mail()
@@ -132,11 +132,11 @@ class MiMailClient(object):
 
   def _send(self, message, log):
     try:
-      if settings.DEBUG:
+      if settings.DEBUG and False:
         status = 200
         msg = ''
 
-        # raise Exception('An error occured while connecting to the server: Unable to fetch URL: https://api.sendgrid.com:443/api/mail.send.json')
+        raise Exception('An error occured while connecting to the server: Unable to fetch URL: https://api.sendgrid.com:443/api/mail.send.json')
       else:
         status, msg = self.sg.send(message)
 
@@ -200,6 +200,9 @@ class MiMailClient(object):
       when_display=log.get('when_display'),
       sendgrid_account=log.get('sendgrid_account')
     )
+    if log.get('fail_log_key'):
+      log_email.fails_link.append(log.get('fail_log_key'))
+
     self.futures.extend(ndb.put_multi_async([log_email]))
 
   def save_fail(self, log):
