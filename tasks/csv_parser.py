@@ -8,6 +8,7 @@ import time
 import pickle
 from apiclient.http import MediaIoBaseDownload
 from google.appengine.api import memcache
+from apiclient.errors import HttpError
 
 from google.appengine.ext import ndb
 from utils import enqueue_task
@@ -141,7 +142,7 @@ class Parser(object):
     logging.info(capacity)
 
     request = self.gcs_service.objects().get_media(bucket=self.bucket_name, object=self.txt_object_name.encode('utf8'))
-    self.gcs_iterator = GCSIterator(request, progress=self.bytes_read, chunksize=settings.CHUNKSIZE)
+    self.gcs_iterator = GCSIterator(request, capacity=capacity, progress=self.bytes_read, chunksize=settings.CHUNKSIZE)
 
     if self.csv_fieldnames:
       self.csv_reader = csv.DictReader(self.gcs_iterator, skipinitialspace=True, delimiter=',',
@@ -155,8 +156,9 @@ class Parser(object):
       try:
         content = self.read_edm_file(self.edm_object_name)
         test_ = unicode(content, 'utf8')
+        logging.info('%s utf8 check ok.' % self.edm_object_name)
 
-      except Exception as e:
+      except Exception:
         raise ValueError('%s encode utf8 error.' % self.edm_object_name)
 
       # start parse csv
@@ -302,10 +304,16 @@ class Parser(object):
       self.new_schedule.txt_object_name = self.txt_object_name
       self.new_schedule.edm_object_name = self.edm_object_name
       self.new_schedule.replace_edm_csv_property = self.replace_edm_csv_property
-      self.new_schedule.error = e.message
+
+      if isinstance(e, HttpError):
+        self.new_schedule.error = '%s, %s' % (e.content, e.uri)
+
+      else:
+        self.new_schedule.error = e.message
+
       self.new_schedule.put()
 
-      logging.info('========== parser job throw execption (%s). done. ==========' % e.message)
+      logging.info('========== parser job throw execption (%s). done. ==========' % self.new_schedule.error)
 
   def add_put_task(self, list_of_rqd, c):
     """
