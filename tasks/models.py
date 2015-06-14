@@ -95,7 +95,7 @@ class LogFailEmail(LogEmail):
 
     self_key = future.get_result()
 
-    @ndb.transactional_tasklet
+    @ndb.tasklet
     def update_changed(self_key):
       schedule_key = self_key.parent()
       reTry = ReTry(parent=schedule_key)
@@ -110,6 +110,7 @@ class LogFailEmail(LogEmail):
 
 class ReTry(ndb.Model):
   failEmail = ndb.KeyProperty(kind='LogFailEmail', required=True)
+  created = ndb.DateTimeProperty(auto_now_add=True)
 
 
 class InvalidEmails(ndb.Model):

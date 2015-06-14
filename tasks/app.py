@@ -20,6 +20,9 @@ routes = [
   (r'/tasks/worker', WorkHandler),
   (r'/tasks/worker2', WorkHandler),
 
+  (r'/tasks/success_log_save', SuccessLogSaveHandler),
+  (r'/tasks/fail_log_save', FailLogSaveHandler),
+
   (r'/tasks/delete_resources', GCSResourcesDeleteHandler),
   (r'/tasks/delete_schedule', ScheduleDeleteHandler),
 

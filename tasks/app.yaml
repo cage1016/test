@@ -22,6 +22,9 @@ handlers:
   script: app.router
   secure: always
 
+inbound_services:
+- warmup
+
 builtins:
 - remote_api: on
 
