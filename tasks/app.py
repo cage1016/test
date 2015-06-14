@@ -20,12 +20,15 @@ routes = [
   (r'/tasks/worker', WorkHandler),
   (r'/tasks/worker2', WorkHandler),
 
+  (r'/tasks/success_log_save', SuccessLogSaveHandler),
+  (r'/tasks/fail_log_save', FailLogSaveHandler),
+
   (r'/tasks/delete_resources', GCSResourcesDeleteHandler),
   (r'/tasks/delete_schedule', ScheduleDeleteHandler),
 
-  (r'/tasks/fail_check', FailMailCheckHandler),
-  (r'/tasks/fail_resend', FailMailResendWorkHandler),
-  (r'/tasks/failmail_delete', FailMailDeleteWorkHandler),
+  (r'/tasks/retry_check', RetryCheckHandler),
+  (r'/tasks/retry_resend', RetrySendWorkHandler),
+  (r'/tasks/retry_delete', RetryDeleteWorkHandler),
 
   (r'/.*', TasksHandler)
 ]

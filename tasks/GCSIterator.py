@@ -16,7 +16,7 @@ class GCSIterator(object):
   Implement Google Cloud Storage csv.DictReader Iterator
   """
 
-  def __init__(self, request, progress=0, chunksize=DEFAULT_CHUNK_SIZE):
+  def __init__(self, request, capacity, progress=0, chunksize=DEFAULT_CHUNK_SIZE):
     self._request = request
     self._uri = request.uri
     self._chunksize = chunksize
@@ -29,14 +29,16 @@ class GCSIterator(object):
     self._lines = []
     self._buffer = None
     self._done = False
+    self._done_and_last_line = False
 
     self._bytes_read = 0
+    self._capacity = capacity
 
   def __iter__(self):
     return self
 
   def next(self):
-    if not self._buffer or len(self._lines) == (self._line_num + 1):
+    if (not self._buffer or len(self._lines) == (self._line_num + 1)) and not self._done_and_last_line:
       if self._lines:
         self._last_line = self._lines[self._line_num]
 
@@ -54,7 +56,11 @@ class GCSIterator(object):
         self._lines.append("")
 
     if not self._buffer:
-      raise StopIteration
+      if self._done and not self._last_line:
+        raise StopIteration
+
+      else:
+        self._done_and_last_line = True
 
     if self._line_num == 0 and len(self._last_line) > 0:
       # print 'fixing'
@@ -63,8 +69,20 @@ class GCSIterator(object):
     else:
       result = self._lines[self._line_num] + "\n"
 
+    # check csv header
+    if self._bytes_read == 0:
+      if not re.match('email', result.lower().replace('"', '')):
+        raise ValueError('csv header must contain "email or EMAIL" property.')
+
+      else:
+        result = result.lower()
+
     self._bytes_read += len(result)
-    self._line_num += 1
+    if not self._done_and_last_line:
+      self._line_num += 1
+
+    else:
+      self._last_line = ''
 
     return result
 

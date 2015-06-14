@@ -16,7 +16,7 @@ from sendgrid import SendGridError, SendGridClientError, SendGridServerError
 from sendgrid import SendGridClient
 from sendgrid import Mail
 
-from models import LogEmail, LogFailEmail
+from models import LogEmail, LogFailEmail, ReTry
 from utils import replace_edm_csv_property, enqueue_task
 from datastore_utils import pop_future_done
 
@@ -41,6 +41,7 @@ class MiMailClient(object):
       # prepare log data
       log = {}
       log.update(
+        schedule_key=schedule.key,
         sender=self.sender,
         category=schedule.category,
         to=recipient['email'],
@@ -73,67 +74,99 @@ class MiMailClient(object):
 
       self._send(message, log)
 
-    ndb.Future.wait_all(self.futures)
+    send_success = [row for row in self.futures if row.get('status') == 'success']
+    send_fail = [row for row in self.futures if row.get('status') == 'fail']
 
-  def resend(self, fail_emails):
+    # split log to another tasks save
+    for s in send_success:
+      enqueue_task(url='/tasks/success_log_save',
+                   params={'log': pickle.dumps(s)},
+                   queue_name='success-log-save')
+
+    for f in send_fail:
+      enqueue_task(url='/tasks/fail_log_save',
+                   params={'log': pickle.dumps(f)},
+                   queue_name='fail-log-save')
+
+  def resend(self, retries):
     """
     handle resend fail email
     :param queries:
     :return:
     """
 
-    for fail_email in fail_emails:
-      d = Delorean()
-      sendgrid = settings.SENDGRID[fail_email.sendgrid_account]
+    retries_keys = [retry.key for retry in retries]
+    for fail_log in ndb.get_multi([retry.failEmail for retry in retries]):
+      sendgrid = settings.SENDGRID[fail_log.sendgrid_account]
 
       self.set_sendgrid_client(sendgrid['USERNAME'], sendgrid['PASSWORD'])
 
-      # prepare log data
-      log = {}
-      log.update(
-        sender=self.sender,
-        category=fail_email.category,
-        to=fail_email.to,
-        reply_to=fail_email.reply_to,
-        sender_name=fail_email.sender_name,
-        sender_email=fail_email.sender_email,
-        subject=fail_email.subject,
-        body=fail_email.body,
-        schedule_timestamp=fail_email.schedule_timestamp,
-        schedule_display=fail_email.schedule_display,
-        when_timestamp=fail_email.when_timestamp,
-        when_display=fail_email.when_display,
-        sendgrid_account=fail_email.sendgrid_account,
-        reason=fail_email.reason
-      )
+      log_mail = LogEmail.query(LogEmail.fails_link.IN([fail_log.key])).get()
+      if log_mail:
+        logging.info('fail mail %s-%s has been retry success.' % fail_log.subject, fail_log.to)
 
-      message = Mail()
-      message.set_subject(log.get('subject'))
-      message.set_html(log.get('body'))
-      message.set_from('%s <%s>' % (log.get('sender_name'), log.get('sender_email')))
-      if log.get('reply_to'):
-        message.set_replyto(log.get('reply_to'))
-      message.add_to(log.get('to'))
-      message.add_category(log.get('category'))
+      else:
+        # fail mail has been retry success
+        # prepare log data
+        log = {}
+        log.update(
+          fail_log_key=fail_log.key,
+          sender=self.sender,
+          category=fail_log.category,
+          to=fail_log.to,
+          reply_to=fail_log.reply_to,
+          sender_name=fail_log.sender_name,
+          sender_email=fail_log.sender_email,
+          subject=fail_log.subject,
+          body=fail_log.body,
+          schedule_timestamp=fail_log.schedule_timestamp,
+          schedule_display=fail_log.schedule_display,
+          when_timestamp=fail_log.when_timestamp,
+          when_display=fail_log.when_display,
+          sendgrid_account=fail_log.sendgrid_account
+        )
 
-      self._send(message, log)
+        message = Mail()
+        message.set_subject(log.get('subject'))
+        message.set_html(log.get('body'))
+        message.set_from('%s <%s>' % (log.get('sender_name'), log.get('sender_email')))
+        if log.get('reply_to'):
+          message.set_replyto(log.get('reply_to'))
+        message.add_to(log.get('to'))
+        message.add_category(log.get('category'))
 
-    if self.futures:
-      ndb.Future.wait_all(self.futures)
-      pop_future_done(self.futures)
+        self._send(message, log)
 
-    if fail_emails:
-      enqueue_task(url='/tasks/failmail_delete',
+    if retries_keys:
+      enqueue_task(url='/tasks/retry_delete',
                    params={
-                     'keys': pickle.dumps([f.key for f in fail_emails])
+                     'retries_keys': pickle.dumps(retries_keys)
                    },
-                   queue_name='failmail-delete')
+                   queue_name='retry-delete')
+
+    # split log to another task to save
+    send_success = [row for row in self.futures if row.get('status') == 'success']
+    send_fail = [row for row in self.futures if row.get('status') == 'fail']
+
+    for s in send_success:
+      enqueue_task(url='/tasks/success_log_save',
+                   params={'log': pickle.dumps(s)},
+                   queue_name='success-log-save')
+
+    for f in send_fail:
+      enqueue_task(url='/tasks/fail_log_save',
+                   params={'log': pickle.dumps(f)},
+                   queue_name='success-log-save')
 
   def _send(self, message, log):
     try:
-      # status = 200
-      # msg = ''
-      status, msg = self.sg.send(message)
+      if settings.DEBUG:
+        status = 200
+        msg = ''
+
+        # raise Exception('An error occured while connecting to the server: xxxxxx (foke error for debug)')
+      else:
+        status, msg = self.sg.send(message)
 
       if status == 200:
         self.save(log)
@@ -165,54 +198,22 @@ class MiMailClient(object):
         runtime.apiproxy_errors.DeadlineExceededError,
         runtime.apiproxy_errors.OverQuotaError) as e:
 
-      logging.error('error: %s' % e)
+      logging.error('error: %s' % e.message)
 
-      log.update(reason=str(e))
+      log.update(reason=e.message)
       self.save_fail(log)
 
     except:
       type, e, traceback = sys.exc_info()
-      logging.error('sys.exc_info error: %s' % e)
+      logging.error('sys.exc_info error: %s' % e.message)
 
-      log.update(reason=str(e))
+      log.update(reason=e.message)
       self.save_fail(log)
 
-
   def save(self, log):
-    log_email = LogEmail(
-      sender=log.get('sender'),
-      category=log.get('category'),
-      to=log.get('to'),
-      reply_to=log.get('reply_to'),
-      sender_name=log.get('sender_name'),
-      sender_email=log.get('sender_email'),
-      subject=log.get('subject'),
-      body=log.get('body'),
-      schedule_timestamp=log.get('schedule_timestamp'),
-      schedule_display=log.get('schedule_display'),
-      when_timestamp=log.get('when_timestamp'),
-      when_display=log.get('when_display'),
-      sendgrid_account=log.get('sendgrid_account')
-    )
-    self.futures.extend(ndb.put_multi_async([log_email]))
+    log.update(status='success')
+    self.futures.append(log)
 
   def save_fail(self, log):
-    log_fail_email = LogFailEmail(
-      sender=log.get('sender'),
-      category=log.get('category'),
-      to=log.get('to'),
-      reply_to=log.get('reply_to'),
-      sender_name=log.get('sender_name'),
-      sender_email=log.get('sender_email'),
-      subject=log.get('subject'),
-      body=log.get('body'),
-      schedule_timestamp=log.get('schedule_timestamp'),
-      schedule_display=log.get('schedule_display'),
-      when_timestamp=log.get('when_timestamp'),
-      when_display=log.get('when_display'),
-      sendgrid_account=log.get('sendgrid_account'),
-      reason=log.get('reason')
-    )
-
-    self.futures.extend(ndb.put_multi_async([log_fail_email]))
-    logging.info('%s send fail: %s' % (log.get('to'), log.get('reason')))
+    log.update(status='fail')
+    self.futures.append(log)

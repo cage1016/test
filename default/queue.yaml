@@ -24,6 +24,22 @@ queue:
     task_retry_limit: 3
     task_age_limit: 20m
 
+- name: success-log-save
+  rate: 20/s
+  bucket_size: 200
+  max_concurrent_requests: 200
+  retry_parameters:
+    task_retry_limit: 3
+    task_age_limit: 20m
+
+- name: fail-log-save
+  rate: 25/s
+  bucket_size: 300
+  max_concurrent_requests: 400
+  retry_parameters:
+    task_retry_limit: 3
+    task_age_limit: 20m
+
 - name: resource-delete
   rate: 1/s
 
@@ -33,10 +49,15 @@ queue:
 - name: parsecsv
   rate: 1/s
 
-- name: failmail-resend
-  rate: 1/s
+- name: retry-resend
+  rate: 2/s
+  bucket_size: 10
+  max_concurrent_requests: 10
+  retry_parameters:
+    task_retry_limit: 3
+    task_age_limit: 20m
 
-- name: failmail-delete
+- name: retry-delete
   rate: 25/s
   bucket_size: 250
   max_concurrent_requests: 500
