@@ -78,6 +78,8 @@ class ScheduleApi(remote.Service):
         txt_object_name=model.txt_object_name.split('/')[-1],
         edm_object_name=model.edm_object_name.split('/')[-1],
         replace_edm_csv_property=model.replace_edm_csv_property,
+        invalid_email=model.invalid_email,
+        error=model.error,
         created=c.strftime('%Y-%m-%d %H:%M:%S')
       )
       schedules.append(schedule)

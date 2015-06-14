@@ -56,7 +56,7 @@ var addIPWarmupScheduleApp = React.createClass({
     fetchResource: function () {
       this.startSpinner('spinner');
 
-      api.getResourceList().done(function (result) {
+      api.getResourceList({'per_page':60}).done(function (result) {
         this.stopSpinner('spinner');
         var data = result.data || [];
 

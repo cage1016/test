@@ -23,6 +23,8 @@ class SchedulesResponseMessage(messages.Message):
   schedule_executed = messages.BooleanField(11)
   sendgrid_account = messages.StringField(12)
   replace_edm_csv_property = messages.StringField(13)
+  invalid_email = messages.IntegerField(14)
+  error = messages.StringField(15)
 
 
 class SchedulesListResponse(messages.Message):

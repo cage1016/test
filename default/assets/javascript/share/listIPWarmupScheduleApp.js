@@ -170,11 +170,18 @@ var listIPWarmupScheduleApp = React.createClass({
         jobs.push(
           <tr>
             <td>{job.schedule_executed ? 'Yes' : ''}</td>
-            <td>{job.subject}</td>
+            <td>
+              <span className="label label-primary">{job.sendgrid_account}</span>
+            </td>
+            <td>{job.error}</td>
+            <td>
+              {job.subject}
+            </td>
             <td>{job.category}</td>
-            <td>{job.schedule_display}</td>
+            <td>{job.error ? '' : job.schedule_display}</td>
             <td>{job.hour_delta}</td>
             <td>{job.hour_capacity}</td>
+            <td>{job.invalid_email}</td>
             <td>{job.hour_rate}</td>
             <td>
               <ResourceList job={job} />
@@ -198,12 +205,15 @@ var listIPWarmupScheduleApp = React.createClass({
         <table className="table">
           <thead>
             <tr>
-              <th>executed</th>
+              <th>go</th>
+              <th>account</th>
+              <th></th>
               <th>subject</th>
               <th>Category</th>
               <th>Schedule</th>
               <th>Delta</th>
               <th>Capacity</th>
+              <th>Invalid</th>
               <th>Rate</th>
               <th>Recipient/edm</th>
               <th>Created</th>

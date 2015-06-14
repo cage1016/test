@@ -20,10 +20,10 @@ CheeerspointAPI.prototype.fetchToken = function () {
   }.bind(this));
 };
 
-CheeerspointAPI.prototype.getResourceList = function () {
+CheeerspointAPI.prototype.getResourceList = function (parameters) {
   function run(apiRoot, token) {
     return $.ajax({
-      url: apiRoot + '/cheerspoint/v1/resources',
+      url: apiRoot + '/cheerspoint/v1/resources' + ((parameters) ? '?' + $.param(parameters) : ''),
       beforeSend: function (xhr) {
         xhr.setRequestHeader("Authorization", "Bearer " + token);
       }.bind(this)
