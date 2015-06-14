@@ -122,6 +122,8 @@ class Schedule(ndb.Model):
   hour_delta = ndb.IntegerProperty(default=0)
   # 每個小時發的容量
   hour_capacity = ndb.IntegerProperty(default=0)
+  #invalid email
+  invalid_email = ndb.IntegerProperty(default=0)
   # 預設是將每天的量分成24小時間來發，
   # default: 1/24hrs, 如果前5個小時要發完 1/5hrs
   hour_rate = ndb.StringProperty()
@@ -138,6 +140,7 @@ class Schedule(ndb.Model):
   replace_edm_csv_property = ndb.StringProperty()
 
   recipientQueue = ndb.KeyProperty(kind=RecipientQueueData, repeated=True)
+  error = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
 
 
