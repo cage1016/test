@@ -24,7 +24,7 @@ class RetrySendWorkHandler(webapp2.RequestHandler):
   @timeit
   def post(self):
     queries = [
-      ReTry.query()
+      ReTry.query().order(ReTry.created)
     ]
 
     mimail_client = MiMailClient()
