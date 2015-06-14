@@ -7,7 +7,7 @@ import time
 import pickle
 
 from google.appengine.ext import ndb
-from models import FlexWebhook
+from models import CheerspointWebhook
 
 from utils import enqueue_task, timeit, grouper
 import settings
@@ -38,7 +38,7 @@ class WebookParserHandler(webapp2.RequestHandler):
       enqueue_task(url='/worker',
                    queue_name='webhook',
                    params={
-                     'entities': pickle.dumps(map(lambda chunk: FlexWebhook.new(chunk), chunks))
+                     'entities': pickle.dumps(map(lambda chunk: CheerspointWebhook.new(chunk), chunks))
                    })
 
       for c in chunks:
@@ -58,7 +58,6 @@ class WebookParserWorkerHandler(webapp2.RequestHandler):
   @ndb.toplevel
   def post(self):
     entities = pickle.loads(self.request.get('entities'))
-    logging.info(entities)
     yield ndb.put_multi_async(entities=entities)
 
 

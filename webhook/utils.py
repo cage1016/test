@@ -7,7 +7,7 @@ import itertools
 from google.appengine import runtime
 from google.appengine.api.taskqueue import taskqueue
 
-from models import FlexWebhook
+from models import CheerspointWebhook
 
 
 def enqueue_task(url, queue_name, params=None, payload=None, name=None, transactional=False):
