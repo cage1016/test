@@ -11,12 +11,21 @@ class RecipientData(ndb.Expando):
 class RecipientQueueData(ndb.Model):
   schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
   data = ndb.JsonProperty(compressed=True)
+  status = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
 
   @classmethod
   @ndb.tasklet
   def delete_all_for_schedule(cls, schedule_key):
     yield ndb.delete_multi_async(cls.query(ancestor=schedule_key).fetch(keys_only=True, batch_size=100))
+
+
+  @classmethod
+  @ndb.tasklet
+  def update_status(cls, reciepient_queueu_data_key):
+    r = yield reciepient_queueu_data_key.get_async()
+    r.status = 'finished'
+    yield r.put_async()
 
 
 # should same as default/models.py

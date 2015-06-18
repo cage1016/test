@@ -11,6 +11,7 @@ from utils import timeit, enqueue_task
 from mimail_client import MiMailClient
 
 import settings
+import tasks
 
 
 class RetryCheckHandler(webapp2.RequestHandler):
@@ -21,25 +22,17 @@ class RetryCheckHandler(webapp2.RequestHandler):
 
 class RetrySendWorkHandler(webapp2.RequestHandler):
   @ndb.toplevel
-  @timeit
   def post(self):
     queries = [
       ReTry.query().order(ReTry.created)
     ]
-
-    mimail_client = MiMailClient()
-
+    countdown_sec = 0
     for retries in page_queries(queries, fetch_page_size=10, keys_only=False):
-      mimail_client.resend(retries)
+      mimail_client = MiMailClient()
+      tasks.addTask(['retry-resend'],
+                    mimail_client.resend,
+                    retries=retries,
+                    countdown_sec=countdown_sec,
+                    _countdown=countdown_sec)
 
-      if (time.time() - self.ts).__int__() > settings.MAX_TASKSQUEUE_EXECUTED_TIME:
-        enqueue_task(url='/tasks/retry_resend',
-                     queue_name='retry-resend')
-        break
-
-
-class RetryDeleteWorkHandler(webapp2.RequestHandler):
-  @ndb.toplevel
-  def post(self):
-    retries_keys = pickle.loads(self.request.get('retries_keys'))
-    yield ndb.delete_multi_async(keys=retries_keys)
+      countdown_sec += 1
