@@ -338,7 +338,7 @@ class Parser(object):
       valid_rows = [row for row in self.save_queue if not row.has_key('invalid')]
       invalid_rows = [row for row in self.save_queue if row.has_key('invalid')]
 
-      rqd = RecipientQueueData(parent=self.new_schedule.key, data=json.dumps(valid_rows))
+      rqd = RecipientQueueData(data=json.dumps(valid_rows), schedule_key=self.new_schedule.key)
       ies = [InvalidEmails.new(self.new_schedule.key, row) for row in invalid_rows]
 
       self.new_schedule.hour_capacity += len(valid_rows)
