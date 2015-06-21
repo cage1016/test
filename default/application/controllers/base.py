@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+from application.utils import to_json_encodable
 
 __author__ = 'cage'
 
@@ -94,17 +95,16 @@ class BaseRequestHandler(webapp2.RequestHandler):
     return j
 
   @webapp2.cached_property
+  def user(self):
+    user = None
+    if 'user' in self.session:
+      user = self.session['user']
+    return user
+
+  @webapp2.cached_property
   def site(self):
     site = Site.get_by_id('default')
     return site
-
-  @webapp2.cached_property
-  def user(self):
-
-    user = self.session.get('user')
-    if user:
-      return pickle.loads(user) if user else None
-
 
   def render(self, template_name, **template_vars):
     # Pass name of current page
@@ -114,9 +114,8 @@ class BaseRequestHandler(webapp2.RequestHandler):
     template_vars['state'] = state
 
     # Pass login url
-    if state != '403' and state != '404' and state != 'welcome_404':
+    if state != '403':
       template_vars['login_url'] = self.CreateLogInUrl(state)
-      template_vars['user'] = self.user
 
     if type(self.request.route_args) == dict:
       if self.request.route_args['exception']:
@@ -126,7 +125,7 @@ class BaseRequestHandler(webapp2.RequestHandler):
       'upath_info': self.request.upath_info,
       'url_for': self.uri_for,
       'site': self.site,
-      # 'user': self.user
+      'user': self.user
     }
 
     # Add manually supplied template values
@@ -189,7 +188,7 @@ class OAuth2CallbackHandler(BaseRequestHandler):
           user.populate(**_attrs)
           user.put()
 
-          self.session['user'] = pickle.dumps(user.to_dict())
+          self.session['user'] = to_json_encodable(user)
           self.session['credential'] = pickle.dumps(credential)
 
         else:
@@ -206,11 +205,10 @@ class OAuth2CallbackHandler(BaseRequestHandler):
             user.populate(**_attrs)
             user.put()
 
-          self.session['user'] = pickle.dumps(user.to_dict())
+          self.session['user'] = to_json_encodable(user)
           self.session['credential'] = pickle.dumps(credential)
 
-        # self.redirect('/' + (self.request.GET.get('state') or ''))
-        self.redirect('/')
+    self.redirect('/' + (self.request.GET.get('state') or ''))
 
 
 class LogOutHandler(BaseRequestHandler):
@@ -250,7 +248,7 @@ def my_login_required(handler_method):
 
     else:
 
-      user = pickle.loads(self.session.get('user'))
+      user = self.session.get('user')
       if not user.get('account_enabled'):
         self.abort(403, detail=u'本網站為邀請制，請洽系統管理員')
 
@@ -284,7 +282,7 @@ def my_admin_required(handler_method):
 
     else:
 
-      user = pickle.loads(self.session['user'])
+      user = self.session['user']
       if not user.get('is_admin'):
         return self.abort(403)
 
@@ -305,7 +303,7 @@ def report_user_required(handler_method):
 
     else:
 
-      user = pickle.loads(self.session['user'])
+      user = self.session['user']
       if not user.get('is_admin'):
 
         if not user.get('report_enabled'):

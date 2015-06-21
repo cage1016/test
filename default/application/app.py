@@ -13,8 +13,7 @@ from application.controllers.reports_handler import reports_routes
 from application.controllers.account_handler import account_management_route
 from application.controllers.ipwarmup_handler import ip_warmup_route
 
-
-from application.controllers.error_handler import Handle403, Handle404, Handle500
+from application.controllers.error_handler import *
 
 # from settings import decorator
 from secrets import SESSION_KEY
@@ -41,16 +40,17 @@ class MainHandler(BaseRequestHandler):
 
 
 class Webapp2HandlerAdapter(webapp2.BaseHandlerAdapter):
-  def __call__(self, request, response, exception):
-    request.route_args = {}
-    request.route_args['exception'] = exception
-    handler = self.handler(request, response)
+  """Wrapper for error handlers,
+  Passes the extra parameter "exception" into the get method.
+  """
 
-    return handler.get()
+  def __call__(self, request, response, exception):
+    return self.handler(request, response).get(exception)
 
 
 routes = [
   ('/', MainHandler),
+  ('/welcome', MainHandler),
 
   ('/oauth2callback', OAuth2CallbackHandler),
   ('/logout', LogOutHandler),
@@ -68,7 +68,7 @@ router = webapp2.WSGIApplication(routes, config=app_config, debug=True)
 
 router.error_handlers[404] = Webapp2HandlerAdapter(Handle404)
 router.error_handlers[403] = Webapp2HandlerAdapter(Handle403)
-# router.error_handlers[500] = Webapp2HandlerAdapter(Handle500)
+router.error_handlers[500] = Webapp2HandlerAdapter(Handle500)
 
 API = endpoints.api_server([
   resources.ResourceApi,
