@@ -68,6 +68,13 @@ class Schedule(ndb.Model):
   error = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
 
+  # delete status
+  # when start to delete schedule
+  # it will set to 'procress'
+  # and detete itself when cron
+  # job check other relative entities
+  # has been deleted
+  status = ndb.StringProperty()
 
 class LogEmail(ndb.Model):
   schedule_key = ndb.KeyProperty(kind='Schedule', required=True)

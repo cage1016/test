@@ -83,3 +83,11 @@ indexes:
   properties:
   - name: schedule_timestamp
   - name: error
+
+- kind: Schedule
+  properties:
+  - name: status
+  - name: created
+    direction: desc
+  - name: __key__
+    direction: desc
