@@ -1,14 +1,9 @@
-import pickle
 import webapp2
-import logging
-import time
 
-from google.appengine.ext import ndb
-from datastore_utils import page_queries
+from datastore_utils import Mapper
 from models import ReTry
 
-from utils import timeit, enqueue_task
-from mimail_client import MiMailClient
+from mimail_client import MiMailClient2
 
 import settings
 import tasks
@@ -17,22 +12,29 @@ import tasks
 class RetryCheckHandler(webapp2.RequestHandler):
   def get(self):
     if ReTry.query().get() is not None:
-      enqueue_task(url='/tasks/retry_resend', queue_name='retry-resend')
+      retry_send_mapper = RetrySendMapper(['retry-resend'])
+      tasks.addTask(['retry-resend'], retry_send_mapper.run, batch_size=10)
 
 
-class RetrySendWorkHandler(webapp2.RequestHandler):
-  @ndb.toplevel
-  def post(self):
-    queries = [
-      ReTry.query().order(ReTry.created)
-    ]
-    countdown_sec = 0
-    for retries in page_queries(queries, fetch_page_size=10, keys_only=False):
-      mimail_client = MiMailClient()
-      tasks.addTask(['retry-resend'],
-                    mimail_client.resend,
-                    retries=retries,
-                    countdown_sec=countdown_sec,
-                    _countdown=countdown_sec)
+class RetrySendMapper(Mapper):
+  KIND = ReTry
 
-      countdown_sec += 1
+  def __init__(self, tasks_queue):
+    super(RetrySendMapper, self).__init__()
+    self.tasks_queue = tasks_queue
+    self.countdown_sec = 0
+
+  def map(self, entity):
+    return ([entity], [])
+
+  # overwrite original batch write
+  def _batch_write(self):
+    if self.to_put:
+      mimail_client2 = MiMailClient2()
+      tasks.addTask(['worker', 'worker2'],
+                    mimail_client2.resend,
+                    retries=self.to_put,
+                    _countdown=self.countdown_sec)
+
+      self.to_put = []
+      self.countdown_sec += 1
