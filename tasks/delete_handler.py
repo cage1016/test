@@ -1,19 +1,26 @@
-from apiclient.errors import HttpError
 import webapp2
 import logging
 import settings
+import httplib2
 
 from google.appengine.ext import ndb
-from models import RecipientQueueData
+from models import RecipientQueueData, ReTry, Schedule, LogEmail, LogFailEmail
+from apiclient.errors import HttpError
 
-from datastore_utils import page_queries
-from utils import timeit, enqueue_task
-import time
+from datastore_utils import Mapper
+import tasks
+
+from google.appengine.api import memcache
+from apiclient.discovery import build
+from oauth2client.appengine import AppAssertionCredentials
 
 
 class GCSResourcesDeleteHandler(webapp2.RequestHandler):
-  @settings.ValidateGCSWithCredential
   def post(self):
+    credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.full_control')
+    http = credentials.authorize(httplib2.Http(memcache))
+    gcs_service = build('storage', 'v1', http=http, developerKey=settings.DEVELOPER_KEY)
+
     object_name = self.request.get('object_name')
     bucket_name = self.request.get('bucket_name')
 
@@ -21,50 +28,110 @@ class GCSResourcesDeleteHandler(webapp2.RequestHandler):
 
     try:
 
-      req = self.gcs_service.objects().delete(bucket=bucket_name, object=object_name.encode('utf8'))
+      req = gcs_service.objects().delete(bucket=bucket_name, object=object_name.encode('utf8'))
       resp = req.execute()
 
     except HttpError, error:
       logging.info(error)
 
 
-class ScheduleDeleteHandler(webapp2.RequestHandler):
-  @ndb.toplevel
-  @timeit
-  def post(self):
-    schedule_urlsafe = self.request.get('urlsafe')
-    count = int(self.request.get('count')) if self.request.get('count') else 0
+class ScheduleDeleteCheckHandler(webapp2.RequestHandler):
+  def check_schedule_procress(self, schedule):
+    done_RecipientQueueData = True if not RecipientQueueData.query(
+      RecipientQueueData.schedule_key == schedule.key).get() else False
+    done_logEmail = True if not LogFailEmail.query(LogFailEmail.schedule_key == schedule.key).get() else False
+    done_FailLogEmail = True if not LogFailEmail.query(LogFailEmail.schedule_key == schedule.key).get() else False
+    done_Retry = True if not ReTry.query(ReTry.schedule_key == schedule.key).get() else False
 
+    if done_RecipientQueueData and done_logEmail and done_FailLogEmail and done_Retry:
+      schedule.key.delete()
+      logging.info('delete %s - %s all done (RecipientsQueueData, logEmail, FailLogEmail, Retry)' % (
+        schedule.subject, schedule.category))
+
+  def get(self):
+    schedules = Schedule.query(Schedule.status == 'deleting').fetch()
+    for schedule in schedules:
+      self.check_schedule_procress(schedule)
+
+
+class ScheduleDeleteHandler(webapp2.RequestHandler):
+  def post(self):
+    """
+    delete schedule job. change schedule stat first and start
+    to delete the following entities.
+
+    schedule job:
+      -> RecipientQueueData
+      -> LogEmail
+      -> FailLogEmail
+      -> Retry
+
+    cron job to check if other entities has been delete
+    then delete schedule itself.
+    """
+
+    schedule_urlsafe = self.request.get('urlsafe')
+    logging.info('schedule_urlsafe: %s' % schedule_urlsafe)
     schedule = ndb.Key(urlsafe=schedule_urlsafe).get()
 
     if schedule:
-      ancestor_key = schedule.key
+      schedule.status = 'deleting'
+      schedule.put()
 
-      queries = [
-        RecipientQueueData.query(ancestor=ancestor_key)
-      ]
+      mapper_RecipientQueueData = RecipientQueueDataMapper(schedule.key, ['schedule-delete-mapper'])
+      mapper_logEmail = LogEmailMapper(schedule.key, ['schedule-delete-mapper'])
+      mapper_FailLogEmail = LogFailEmailMapper(schedule.key, ['schedule-delete-mapper'])
+      mapper_Retry = RetryMapper(schedule.key, ['schedule-delete-mapper'])
 
-      for keys in page_queries(queries, fetch_page_size=100):
-        count += len(keys)
-        yield ndb.delete_multi_async(keys=keys)
+      tasks.addTask(['schedule-delete-mapper'], mapper_RecipientQueueData.run)
+      tasks.addTask(['schedule-delete-mapper'], mapper_logEmail.run)
+      tasks.addTask(['schedule-delete-mapper'], mapper_FailLogEmail.run)
+      tasks.addTask(['schedule-delete-mapper'], mapper_Retry.run)
 
-        if (time.time() - self.ts).__int__() > settings.MAX_TASKSQUEUE_EXECUTED_TIME:
-          enqueue_task(url='/tasks/dt',
-                       queue_name='delete-test',
-                       params={
-                         'urlsafe': schedule_urlsafe,
-                         'count': count
-                       })
-          break
 
-      logging.info('delete %s - RecipientQueueData(%d/%d) finished.' % (schedule.subject,
-                                                                        count * settings.RECIPIENT_CHENKS_SIZE,
-                                                                        schedule.hour_capacity))
+class RetryMapper(Mapper):
+  KIND = ReTry
 
-      if count * settings.RECIPIENT_CHENKS_SIZE == schedule.hour_capacity:
-        schedule.key.delete()
-        logging.info('delete %s finished.' % schedule.subject)
+  def __init__(self, schedule_key, tasks_queue):
+    super(RetryMapper, self).__init__()
+    self.FILTERS = [(ReTry.schedule_key, schedule_key)]
+    self.tasks_queue = tasks_queue
 
-      if count == 0 or (count == 1 and (schedule.hour_capacity <= count * settings.RECIPIENT_CHENKS_SIZE)):
-        schedule.key.delete()
-        logging.info('delete %s finished.' % schedule.subject)
+  def map(self, entity):
+    return ([], [entity.key])
+
+
+class LogEmailMapper(Mapper):
+  KIND = LogEmail
+
+  def __init__(self, schedule_key, tasks_queue):
+    super(LogEmailMapper, self).__init__()
+    self.FILTERS = [(LogEmail.schedule_key, schedule_key)]
+    self.tasks_queue = tasks_queue
+
+  def map(self, entity):
+    return ([], [entity.key])
+
+
+class LogFailEmailMapper(Mapper):
+  KIND = LogFailEmail
+
+  def __init__(self, schedule_key, tasks_queue):
+    super(LogFailEmailMapper, self).__init__()
+    self.FILTERS = [(LogFailEmail.schedule_key, schedule_key)]
+    self.tasks_queue = tasks_queue
+
+  def map(self, entity):
+    return ([], [entity.key])
+
+
+class RecipientQueueDataMapper(Mapper):
+  KIND = RecipientQueueData
+
+  def __init__(self, schedule_key, tasks_queue):
+    super(RecipientQueueDataMapper, self).__init__()
+    self.FILTERS = [(RecipientQueueData.schedule_key, schedule_key)]
+    self.tasks_queue = tasks_queue
+
+  def map(self, entity):
+    return ([], [entity.key])

@@ -99,7 +99,9 @@ class RecipientData(ndb.Expando):
 
 # should same as default/models.py
 class RecipientQueueData(ndb.Model):
+  schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
   data = ndb.JsonProperty(compressed=True)
+  status = ndb.StringProperty(default='')
   created = ndb.DateTimeProperty(auto_now_add=True)
 
 
@@ -122,7 +124,7 @@ class Schedule(ndb.Model):
   hour_delta = ndb.IntegerProperty(default=0)
   # 每個小時發的容量
   hour_capacity = ndb.IntegerProperty(default=0)
-  #invalid email
+  # invalid email
   invalid_email = ndb.IntegerProperty(default=0)
   # 預設是將每天的量分成24小時間來發，
   # default: 1/24hrs, 如果前5個小時要發完 1/5hrs
@@ -143,15 +145,25 @@ class Schedule(ndb.Model):
   error = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
 
+  # delete status
+  # when start to delete schedule
+  # it will set to 'procress'
+  # and detete itself when cron
+  # job check other relative entities
+  # has been deleted
+  status = ndb.StringProperty(default='')
+  success_worker = ndb.IntegerProperty(default=0)
+  fail_worker = ndb.IntegerProperty(default=0)
 
   @classmethod
   def query_by_page(cls, categories, cursor, forward, per_page, **params):
-
+    query = cls.query()
     if forward:
-      query = cls.query().order(-cls.created, -cls._key)
       if categories:
         query = query.filter(cls.category.IN(categories.split(',')))
 
+      query = query.filter(cls.status != 'deleting')
+      query = query.order(-cls.status, -cls.created, -cls._key)
       data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:
@@ -163,10 +175,11 @@ class Schedule(ndb.Model):
         params.update(pre_cursor=pre_cursor)
 
     else:
-      query = cls.query().order(cls.created, cls._key)
       if categories:
         query = query.filter(cls.category.IN(categories.split(',')))
 
+      query = query.filter(cls.status != 'deleting')
+      query = query.order(cls.status, cls.created, cls._key)
       data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:

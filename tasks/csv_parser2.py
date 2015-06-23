@@ -6,6 +6,7 @@ import csv
 import json
 import time
 import pickle
+import tasks
 from apiclient.http import MediaIoBaseDownload
 from google.appengine.api import memcache
 from apiclient.errors import HttpError
@@ -13,12 +14,18 @@ from apiclient.errors import HttpError
 from google.appengine.ext import ndb
 from utils import enqueue_task
 from GCSIterator import GCSIterator
+from google.appengine import runtime
 
 from utils import sending_rate, time_to_utc, time_add, timeit
 import settings
 
 from models import Schedule, RecipientQueueData, InvalidEmails
 from validate_email import validate_email
+
+import httplib2
+from google.appengine.api import memcache
+from apiclient.discovery import build
+from oauth2client.appengine import AppAssertionCredentials
 
 
 class Parser(object):
@@ -59,10 +66,13 @@ class Parser(object):
     csv_fieldnames: re-queue parameters, csv file header fielenames.
   """
 
+  def __init__(self):
+    self.save_queue = []
+    self.SAVE_QUEUE_SIZE = settings.RECIPIENT_CHENKS_SIZE
+    self.TASKQUEUE_SIZE = 1000  # depend on taskqueue send data size limit. 1000/10 = 100 entities
+    self.list_of_rqd = []
 
-  @settings.ValidateGCSWithCredential
-  def __init__(self, parameters):
-
+  def setup(self, parameters):
     self.sendgrid_account = parameters.get('sendgrid_account')
     self.subject = parameters.get('subject')
     self.sender_name = parameters.get('sender_name')
@@ -93,22 +103,17 @@ class Parser(object):
     self.bytes_read = int(parameters.get('bytes_read')) if parameters.__contains__('bytes_read') else 0
     self.csv_fieldnames = parameters.get('csv_fieldnames')
 
-    self.save_queue = []
-    self.SAVE_QUEUE_SIZE = settings.RECIPIENT_CHENKS_SIZE
     self.new_schedule = ndb.Key(urlsafe=parameters.get('new_schedule_key_urlsafe')).get() if parameters.__contains__(
       'new_schedule_key_urlsafe') else None
 
-    self.list_of_rqd = []
-    self.TASKQUEUE_SIZE = 500  # depend on taskqueue send data size limit.
-
-  def read_edm_file(self, edm_object_name):
+  def read_edm_file(self, gcs_service, edm_object_name):
     data = memcache.get(edm_object_name)
     if data is not None:
       return data
 
     else:
       fh = io.BytesIO()
-      request = self.gcs_service.objects().get_media(bucket=settings.BUCKET, object=edm_object_name.encode('utf8'))
+      request = gcs_service.objects().get_media(bucket=settings.BUCKET, object=edm_object_name.encode('utf8'))
       downloader = MediaIoBaseDownload(fh, request, chunksize=settings.CHUNKSIZE)
       done = False
       while not done:
@@ -121,40 +126,43 @@ class Parser(object):
       memcache.add(edm_object_name, data, settings.EDM_CONTENT_MEMCACHE_TIME)
       return data
 
-  @timeit
-  def run(self, MAX_TASKSQUEUE_EXECUTED_TIME=500):
-    """
-    parse CSV file
-    """
+  def run(self, parameters):
+    self._continue(parameters)
 
+  def _continue(self, parameters):
+    self.setup(parameters)
 
-    # datetime manipulate
-    # all datastore store datetime as utc time
+    credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.full_control')
+    http = credentials.authorize(httplib2.Http(memcache))
+    gcs_service = build('storage', 'v1', http=http, developerKey=settings.DEVELOPER_KEY)
+
     d = time_to_utc(self.start_time)
 
-    # prepare sending rate
-    # [91,83..], 2000 ex
-    job_sending_rate, capacity = sending_rate(self.schedule_duration,
-                                              self.ip_counts,
-                                              self.hour_rate,
-                                              self.daily_capacity)
-    logging.info(job_sending_rate)
-    logging.info(capacity)
-
-    request = self.gcs_service.objects().get_media(bucket=self.bucket_name, object=self.txt_object_name.encode('utf8'))
-    self.gcs_iterator = GCSIterator(request, capacity=capacity, progress=self.bytes_read, chunksize=settings.CHUNKSIZE)
-
-    if self.csv_fieldnames:
-      self.csv_reader = csv.DictReader(self.gcs_iterator, skipinitialspace=True, delimiter=',',
-                                       fieldnames=self.csv_fieldnames)
-
-    else:
-      self.csv_reader = csv.DictReader(self.gcs_iterator, skipinitialspace=True, delimiter=',')
-
     try:
+      # prepare sending rate
+      # [91,83..], 2000 ex
+      job_sending_rate, capacity = sending_rate(self.schedule_duration,
+                                                self.ip_counts,
+                                                self.hour_rate,
+                                                self.daily_capacity)
+      logging.info(job_sending_rate)
+      logging.info(capacity)
+
+      request = gcs_service.objects().get_media(bucket=self.bucket_name, object=self.txt_object_name.encode('utf8'))
+      self.gcs_iterator = GCSIterator(request, capacity=capacity, progress=self.bytes_read,
+                                      chunksize=settings.CHUNKSIZE)
+
+      if self.csv_fieldnames:
+        self.csv_reader = csv.DictReader(self.gcs_iterator, skipinitialspace=True, delimiter=',',
+                                         fieldnames=self.csv_fieldnames)
+
+      else:
+        self.csv_reader = csv.DictReader(self.gcs_iterator, skipinitialspace=True, delimiter=',')
+
+
       # check edm content
       try:
-        content = self.read_edm_file(self.edm_object_name)
+        content = self.read_edm_file(gcs_service, self.edm_object_name)
         test_ = unicode(content, 'utf8')
         logging.info('%s utf8 check ok.' % self.edm_object_name)
 
@@ -198,14 +206,13 @@ class Parser(object):
 
         # append extra index to data row
         if len(self.save_queue) >= self.SAVE_QUEUE_SIZE:
-          self.save()
+          self._to_put()
 
         # check hour capacity
         if self.count >= job_sending_rate[self.hour_index]:
           if job_sending_rate[self.hour_index] > 0:
-            self.save()
-            self.add_put_task(self.list_of_rqd, self.total_count)
-            self.list_of_rqd = []
+            self._to_put()
+            self._batch_write()
 
             # reset recipiensQueueData inner index, count
             self.count = 0
@@ -215,52 +222,11 @@ class Parser(object):
 
         # force put to taskqueue if hit max taskqueue send data size limit
         if self.count % self.TASKQUEUE_SIZE == 0 and self.count > 0:
-          self.add_put_task(self.list_of_rqd, self.total_count)
+          self._batch_write()
 
         # break if row index > totoal capacity
         if (index + 1) > capacity:
           logging.info('index (%d) >= capacity(%d). break parser.' % (index, capacity))
-          break
-
-        # logging.info('executed time: %d secs, %d' % ((time.time() - self.ts).__int__(), self.gcs_iterator._bytes_read))
-        if (time.time() - self.ts).__int__() > MAX_TASKSQUEUE_EXECUTED_TIME:
-          enqueue_task(url='/tasks/parsecsv',
-                       queue_name='parsecsv',
-                       params={
-                         'parameters': pickle.dumps({
-                           'sendgrid_account': self.sendgrid_account,
-                           'subject': self.subject,
-                           'sender_name': self.sender_name,
-                           'sender_email': self.sender_email,
-
-                           'category': self.category,
-                           'reply_to': self.reply_to,
-                           'type': self.type,
-
-                           'txt_object_name': self.txt_object_name,
-                           'edm_object_name': self.edm_object_name,
-                           'bucket_name': self.bucket_name,
-                           'replace_edm_csv_property': self.replace_edm_csv_property,
-
-                           'schedule_duration': self.schedule_duration,
-                           'ip_counts': self.ip_counts,
-
-                           'recipient_skip': self.recipient_skip,
-                           'hour_rate': self.hour_rate,
-                           'start_time': self.start_time,
-                           'daily_capacity': self.daily_capacity,
-
-                           'init_index': index,
-                           'count': self.count,
-                           'total_count': self.total_count,
-                           'hour_index': self.hour_index,
-                           'last_hour_index': self.last_hour_index,
-                           'bytes_read': self.gcs_iterator._bytes_read,
-                           'csv_fieldnames': self.csv_reader.fieldnames,
-
-                           'new_schedule_key_urlsafe': self.new_schedule.key.urlsafe()
-                         })
-                       })
           break
 
         # check email validation
@@ -282,14 +248,63 @@ class Parser(object):
         self.count += 1
         self.total_count += 1
 
+
       # -----------
       # check left self.save_queue have not saved.
       if len(self.save_queue) > 0:
-        self.save()
-        self.add_put_task(self.list_of_rqd, self.total_count)
-        self.list_of_rqd = []
+        self._to_put()
+        self._batch_write()
 
       logging.info('========== parser job done. ==========')
+
+
+    except (runtime.DeadlineExceededError,
+            runtime.apiproxy_errors.CancelledError,
+            runtime.apiproxy_errors.DeadlineExceededError,
+            runtime.apiproxy_errors.OverQuotaError) as e:
+
+      # Write any unfinished updates to the datastore.
+      # self._batch_write()
+
+      self._to_put()
+      self._batch_write()
+
+      x = {
+        'sendgrid_account': self.sendgrid_account,
+        'subject': self.subject,
+        'sender_name': self.sender_name,
+        'sender_email': self.sender_email,
+
+        'category': self.category,
+        'reply_to': self.reply_to,
+        'type': self.type,
+
+        'txt_object_name': self.txt_object_name,
+        'edm_object_name': self.edm_object_name,
+        'bucket_name': self.bucket_name,
+        'replace_edm_csv_property': self.replace_edm_csv_property,
+
+        'schedule_duration': self.schedule_duration,
+        'ip_counts': self.ip_counts,
+
+        'recipient_skip': self.recipient_skip,
+        'hour_rate': self.hour_rate,
+        'start_time': self.start_time,
+        'daily_capacity': self.daily_capacity,
+
+        'init_index': index,
+        'count': self.count,
+        'total_count': self.total_count,
+        'hour_index': self.hour_index,
+        'last_hour_index': self.last_hour_index,
+        'bytes_read': self.gcs_iterator._bytes_read,
+        'csv_fieldnames': self.csv_reader.fieldnames,
+
+        'new_schedule_key_urlsafe': self.new_schedule.key.urlsafe()
+      }
+
+      new_parser = Parser()
+      tasks.addTask(['parsecsv'], new_parser._continue, x)
 
     except Exception as e:
       self.new_schedule = Schedule()
@@ -312,20 +327,19 @@ class Parser(object):
         self.new_schedule.error = e.message
 
       self.new_schedule.put()
+      self.finish()
 
-      logging.info('========== parser job throw execption (%s). done. ==========' % self.new_schedule.error)
+  def finish(self):
+    logging.info('========== parser job throw execption (%s). done. ==========' % self.new_schedule.error)
 
-  def add_put_task(self, list_of_rqd, c):
-    """
-    add put task: really execute save to datastore.
-    """
+  def _batch_write(self):
+    if self.list_of_rqd:
+      ndb.put_multi(self.list_of_rqd + [self.new_schedule])
+      logging.info('async has been process: %d' % self.total_count)
 
-    ndb.Future.wait_all(list_of_rqd)
-    self.new_schedule.put()
-    logging.info('async has been process: %d' % c)
+      self.list_of_rqd = []
 
-
-  def save(self):
+  def _to_put(self):
     """
     pickle recipient list array to RecipientQueueData data property.
 
@@ -343,7 +357,8 @@ class Parser(object):
 
       self.new_schedule.hour_capacity += len(valid_rows)
       self.new_schedule.invalid_email += len(invalid_rows)
-      self.list_of_rqd.extend(ndb.put_multi_async([rqd] + ies))
+      # self.list_of_rqd.extend(ndb.put_multi_async([rqd] + ies))
+      self.list_of_rqd.extend([rqd] + ies)
 
       self.save_queue = []
       self.save_queue_index = 0

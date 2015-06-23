@@ -1,45 +1,46 @@
-import pickle
 import webapp2
 import logging
-import time
 
-from google.appengine.ext import ndb
-from datastore_utils import page_queries
+from datastore_utils import Mapper
 from models import ReTry
 
-from utils import timeit, enqueue_task
-from mimail_client import MiMailClient
+from mimail_client import MiMailClient2
 
 import settings
+import tasks
 
 
 class RetryCheckHandler(webapp2.RequestHandler):
   def get(self):
     if ReTry.query().get() is not None:
-      enqueue_task(url='/tasks/retry_resend', queue_name='retry-resend')
+      retry_send_mapper = RetrySendMapper(['retry-resend'])
+      tasks.addTask(['retry-resend'], retry_send_mapper.run, batch_size=settings.QUEUE_CHUNKS_SIZE)
 
 
-class RetrySendWorkHandler(webapp2.RequestHandler):
-  @ndb.toplevel
-  @timeit
-  def post(self):
-    queries = [
-      ReTry.query().order(ReTry.created)
-    ]
+class RetrySendMapper(Mapper):
+  KIND = ReTry
 
-    mimail_client = MiMailClient()
+  def __init__(self, tasks_queue):
+    super(RetrySendMapper, self).__init__()
+    self.tasks_queue = tasks_queue
+    self.countdown_sec = 0
+    self.retry_count = 0
 
-    for retries in page_queries(queries, fetch_page_size=10, keys_only=False):
-      mimail_client.resend(retries)
+  def map(self, entity):
+    self.retry_count += 1
+    return ([entity], [])
 
-      if (time.time() - self.ts).__int__() > settings.MAX_TASKSQUEUE_EXECUTED_TIME:
-        enqueue_task(url='/tasks/retry_resend',
-                     queue_name='retry-resend')
-        break
+  # overwrite original batch write
+  def _batch_write(self):
+    if self.to_put:
+      mimail_client2 = MiMailClient2()
+      tasks.addTask(['worker', 'worker2'],
+                    mimail_client2.resend,
+                    retries=self.to_put,
+                    _countdown=self.countdown_sec)
 
+      self.to_put = []
+      self.countdown_sec += 1
 
-class RetryDeleteWorkHandler(webapp2.RequestHandler):
-  @ndb.toplevel
-  def post(self):
-    retries_keys = pickle.loads(self.request.get('retries_keys'))
-    yield ndb.delete_multi_async(keys=retries_keys)
+  def finish(self):
+    logging.info('retry count= %d (chunks:%d)' % (self.retry_count, settings.QUEUE_CHUNKS_SIZE))

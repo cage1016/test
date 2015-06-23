@@ -1,34 +1,36 @@
 # coding: utf8
 
 import io
-import pickle
-from google.appengine.ext.db import TransactionFailedError
 import webapp2
 import logging
-import json
+import httplib2
 
 from delorean import Delorean
 
 from google.appengine.api import memcache
-from google.appengine.ext import ndb
-from google.appengine.datastore.datastore_query import Cursor
+from apiclient.discovery import build
+from oauth2client.appengine import AppAssertionCredentials
 from apiclient.http import MediaIoBaseDownload
 
+from datastore_utils import Mapper
+from mimail_client import MiMailClient2
+from models import Schedule, RecipientQueueData
 import settings
-from models import Schedule, RecipientQueueData, LogEmail, LogFailEmail
-
-from utils import enqueue_task
-
-from mimail_client import MiMailClient
+import tasks
 
 
 class ScheduleHandler(webapp2.RequestHandler):
   def get(self):
     now = Delorean().truncate('minute')
+    mtime = self.request.get('mtime')
 
     logging.info('match schedule_timestamp query = %f' % now.epoch())
 
-    if settings.DEBUG:
+    if mtime:
+      logging.debug('manual fire schedule %s ' % mtime)
+      jobs = Schedule.query(Schedule.schedule_timestamp == float(mtime), Schedule.error == None).fetch()
+
+    elif settings.DEBUG:
       jobs = Schedule.query(Schedule.schedule_timestamp == 1432634400.0, Schedule.error == None).fetch()
 
     else:
@@ -36,22 +38,39 @@ class ScheduleHandler(webapp2.RequestHandler):
 
     for job in jobs:
       logging.info('job schedule found!!, categroy:%s, hour_capacity= %d' % (job.category, job.hour_capacity))
-      enqueue_task(url='/tasks/mailer',
-                   params={
-                     'jkey': job.key.urlsafe()
-                   },
-                   queue_name='mailer')
+
+      mailer2 = Mailer2(job.key, ['mailer'])
+      tasks.addTask(['mailer'], mailer2.run)
 
 
-class MailerHandler(webapp2.RequestHandler):
+class Mailer2(Mapper):
+  KIND = RecipientQueueData
+
+  def __init__(self, schedule_key, tasks_queue):
+    super(Mailer2, self).__init__()
+    self.FILTERS = [(RecipientQueueData.schedule_key, schedule_key)]
+    self.tasks_queue = tasks_queue
+
+    self.count = 0
+    self.success_worker = 0
+    self.fail_worker = 0
+    self.schedule_job = schedule_key.get()
+
+    self.content = self.read_edm_file(self.schedule_job.edm_object_name)
+    self.sendgrid = settings.SENDGRID[self.schedule_job.sendgrid_account]
+
   def read_edm_file(self, edm_object_name):
+    credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.full_control')
+    http = credentials.authorize(httplib2.Http(memcache))
+    gcs_service = build('storage', 'v1', http=http, developerKey=settings.DEVELOPER_KEY)
+
     data = memcache.get(edm_object_name)
     if data is not None:
       return data
 
     else:
       fh = io.BytesIO()
-      request = self.gcs_service.objects().get_media(bucket=settings.BUCKET, object=edm_object_name.encode('utf8'))
+      request = gcs_service.objects().get_media(bucket=settings.BUCKET, object=edm_object_name.encode('utf8'))
       downloader = MediaIoBaseDownload(fh, request, chunksize=settings.CHUNKSIZE)
       done = False
       while not done:
@@ -64,139 +83,31 @@ class MailerHandler(webapp2.RequestHandler):
       memcache.add(edm_object_name, data, settings.EDM_CONTENT_MEMCACHE_TIME)
       return data
 
-  @settings.ValidateGCSWithCredential
-  def post(self):
-    skey = self.request.get('jkey')
+  def map(self, entity):
+    countdown_sec = self.count // settings.QUEUE_CHUNKS_SIZE
 
-    schedule_job = ndb.Key(urlsafe=skey).get()
-    schedule_job.schedule_executed = True
-    schedule_job.put()
+    mimail_client2 = MiMailClient2(self.sendgrid['USERNAME'], self.sendgrid['PASSWORD'])
+    r = tasks.addTask(['worker', 'worker2'],
+                      mimail_client2.run,
+                      schedule=self.schedule_job,
+                      content=self.content,
+                      recipient_queues=entity,
+                      _countdown=countdown_sec).get_result()
 
-    if schedule_job:
-      logging.info('execute %s @ %s' % (schedule_job.category, schedule_job.schedule_display))
+    if r:
+      self.success_worker += 1
 
-      content = self.read_edm_file(schedule_job.edm_object_name)
-      sendgrid = settings.SENDGRID[schedule_job.sendgrid_account]
+    else:
+      self.fail_worker += 1
 
-      cursor = None
-      while True:
-        curs = Cursor(urlsafe=cursor)
-        recipientQueues, next_curs, more = RecipientQueueData.query(
-          ancestor=schedule_job.key).fetch_page(settings.QUEUE_CHUNKS_SIZE, start_cursor=curs)
+    self.count += 1
+    return ([], [])
 
-        for index, r in enumerate(recipientQueues):
-          params = {
-            'schedule': pickle.dumps(schedule_job),
-            'recipient_queue': r.data,
-            'content': content,
-            'edm_object_name': schedule_job.edm_object_name,
-            'sendgrid_account': sendgrid['USERNAME'],
-            'sendgrid_password': sendgrid['PASSWORD']
-          }
+  def finish(self):
+    self.schedule_job.success_worker = self.success_worker
+    self.schedule_job.fail_worker = self.fail_worker
+    self.schedule_job.schedule_executed = True
 
-          if index % 2 == 0:
-            enqueue_task(url='/tasks/worker', queue_name='worker', params=params)
-
-          if index % 2 == 1:
-            enqueue_task(url='/tasks/worker2', queue_name='worker2', params=params)
-
-        if more and next_curs:
-          cursor = next_curs.urlsafe()
-
-        else:
-          break
-
-
-class WorkHandler(webapp2.RequestHandler):
-  def post(self):
-    """
-    mailsend worker
-    """
-
-    schedule = pickle.loads(self.request.get('schedule'))
-    content = self.request.get('content')
-    recipients = json.loads(self.request.get('recipient_queue'))
-    sendgrid_account = self.request.get('sendgrid_account')
-    sendgrid_password = self.request.get('sendgrid_password')
-
-    logging.debug('/tasks/worker executed: send %d recipients.' % len(recipients))
-    logging.debug(
-      'sendgrid_account: %s, subject:%s, category: %s' % (sendgrid_account, schedule.subject, schedule.category))
-    logging.debug(recipients)
-
-    mimail_client = MiMailClient(sendgrid_account, sendgrid_password)
-    mimail_client.send(schedule, content, recipients)
-
-
-class SuccessLogSaveHandler(webapp2.RequestHandler):
-  @ndb.toplevel
-  def post(self):
-    log = pickle.loads(self.request.get('log'))
-
-    try:
-      log_email = LogEmail(
-        parent=log.get('schedule_key'),
-        sender=log.get('sender'),
-        category=log.get('category'),
-        to=log.get('to'),
-        reply_to=log.get('reply_to'),
-        sender_name=log.get('sender_name'),
-        sender_email=log.get('sender_email'),
-        subject=log.get('subject'),
-        body=log.get('body'),
-        schedule_timestamp=log.get('schedule_timestamp'),
-        schedule_display=log.get('schedule_display'),
-        when_timestamp=log.get('when_timestamp'),
-        when_display=log.get('when_display'),
-        sendgrid_account=log.get('sendgrid_account')
-      )
-
-      if log.get('fail_log_key'):
-        log_email.fails_link.append(log.get('fail_log_key'))
-
-      yield ndb.put_multi_async([log_email])
-
-    except TransactionFailedError as e:
-      logging.info('%s, %s, %s: %s. manual re-add to success-log-save queue' % (
-        log.get('subject'), log.get('category'), log.get('to'), e.message))
-
-      enqueue_task(url='/tasks/success_log_save',
-                   params={'log': pickle.dumps(log)},
-                   queue_name='success-log-save')
-
-
-class FailLogSaveHandler(webapp2.RequestHandler):
-  @ndb.toplevel
-  def post(self):
-    log = pickle.loads(self.request.get('log'))
-
-    try:
-
-      log_fail_email = LogFailEmail(
-        parent=log.get('schedule_key'),
-        sender=log.get('sender'),
-        category=log.get('category'),
-        to=log.get('to'),
-        reply_to=log.get('reply_to'),
-        sender_name=log.get('sender_name'),
-        sender_email=log.get('sender_email'),
-        subject=log.get('subject'),
-        body=log.get('body'),
-        schedule_timestamp=log.get('schedule_timestamp'),
-        schedule_display=log.get('schedule_display'),
-        when_timestamp=log.get('when_timestamp'),
-        when_display=log.get('when_display'),
-        sendgrid_account=log.get('sendgrid_account'),
-        reason=log.get('reason')
-      )
-
-      logging.info('%s send fail: %s' % (log.get('to'), log.get('reason')))
-      yield ndb.put_multi_async([log_fail_email])
-
-    except TransactionFailedError as e:
-      logging.info('%s, %s, %s: %s. manual re-add to fail-log-save queue' % (
-        log.get('subject'), log.get('category'), log.get('to'), e.message))
-
-      enqueue_task(url='/tasks/fail_log_save',
-                   params={'log': pickle.dumps(log)},
-                   queue_name='fail-log-save')
+    self.schedule_job.put()
+    logging.info('mailer2 finished. count(%d), success_worker(%d), fail_worker(%d)' % (
+      self.count, self.success_worker, self.fail_worker))

@@ -9,13 +9,10 @@ class RecipientData(ndb.Expando):
 
 # should same as default/models.py
 class RecipientQueueData(ndb.Model):
+  schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
   data = ndb.JsonProperty(compressed=True)
+  status = ndb.StringProperty(default='')
   created = ndb.DateTimeProperty(auto_now_add=True)
-
-  @classmethod
-  @ndb.tasklet
-  def delete_all_for_schedule(cls, schedule_key):
-    yield ndb.delete_multi_async(cls.query(ancestor=schedule_key).fetch(keys_only=True, batch_size=100))
 
 
 # should same as default/models.py
@@ -58,8 +55,19 @@ class Schedule(ndb.Model):
   error = ndb.StringProperty()
   created = ndb.DateTimeProperty(auto_now_add=True)
 
+  # delete status
+  # when start to delete schedule
+  # it will set to 'procress'
+  # and detete itself when cron
+  # job check other relative entities
+  # has been deleted
+  status = ndb.StringProperty(default='')
+  success_worker = ndb.IntegerProperty(default=0)
+  fail_worker = ndb.IntegerProperty(default=0)
+
 
 class LogEmail(ndb.Model):
+  schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
   # 真正的 sender: 'sendgrid' or google service account
   sender = ndb.StringProperty(required=True)
   category = ndb.StringProperty()
@@ -96,24 +104,25 @@ class LogFailEmail(LogEmail):
     self_key = future.get_result()
 
     @ndb.tasklet
-    def update_changed(self_key):
-      schedule_key = self_key.parent()
-      reTry = ReTry(parent=schedule_key)
+    def update_changed(self_key, schedule_key):
+      reTry = ReTry()
+      reTry.schedule_key = schedule_key
       reTry.failEmail = self_key
-
-      yield ndb.put_multi_async([reTry])
+      yield reTry.put_async()
 
     ndb.Future.wait_all([
-      update_changed(self_key)
+      update_changed(self_key, self.schedule_key)
     ])
 
 
 class ReTry(ndb.Model):
+  schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
   failEmail = ndb.KeyProperty(kind='LogFailEmail', required=True)
   created = ndb.DateTimeProperty(auto_now_add=True)
 
 
 class InvalidEmails(ndb.Model):
+  schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
   sendgrid_account = ndb.StringProperty()
   category = ndb.StringProperty()
   schedule_subject = ndb.StringProperty()
@@ -125,8 +134,9 @@ class InvalidEmails(ndb.Model):
   created = ndb.DateTimeProperty(auto_now_add=True)
 
   @classmethod
-  def new(cls, ancestor_key, row):
-    invalid_email = InvalidEmails(parent=ancestor_key)
+  def new(cls, schedule_key, row):
+    invalid_email = InvalidEmails()
+    invalid_email.schedule_key = schedule_key
     invalid_email.sendgrid_account = row.get('sendgrid_account')
     invalid_email.category = row.get('category')
     invalid_email.schedule_subject = row.get('schedule_subject')
