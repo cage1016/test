@@ -2,17 +2,14 @@
 
 import pickle
 import webapp2
-import logging
-import settings
+import tasks
 
-from csv_parser import Parser
+from csv_parser2 import Parser
 
 
 class ParseCSVHandler(webapp2.RequestHandler):
   def post(self):
     parameters = pickle.loads(self.request.get('parameters'))
 
-    logging.info(parameters)
-
-    parser = Parser(parameters)
-    parser.run(MAX_TASKSQUEUE_EXECUTED_TIME=settings.MAX_TASKSQUEUE_EXECUTED_TIME)
+    parser = Parser()
+    tasks.addTask(['parsecsv'], parser.run, parameters)

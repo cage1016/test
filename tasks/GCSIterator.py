@@ -21,6 +21,7 @@ class GCSIterator(object):
     self._uri = request.uri
     self._chunksize = chunksize
     self._progress = progress
+    self._init_progress = progress
     self._total_size = None
     self._done = False
 
@@ -70,7 +71,7 @@ class GCSIterator(object):
       result = self._lines[self._line_num] + "\n"
 
     # check csv header
-    if self._bytes_read == 0:
+    if self._bytes_read == 0 and self._init_progress == 0:
       if not re.match('email', result.lower().replace('"', '')):
         raise ValueError('csv header must contain "email or EMAIL" property.')
 
