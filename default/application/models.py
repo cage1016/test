@@ -99,7 +99,9 @@ class RecipientData(ndb.Expando):
 
 # should same as default/models.py
 class RecipientQueueData(ndb.Model):
+  schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
   data = ndb.JsonProperty(compressed=True)
+  status = ndb.StringProperty(default='')
   created = ndb.DateTimeProperty(auto_now_add=True)
 
 
@@ -149,17 +151,19 @@ class Schedule(ndb.Model):
   # and detete itself when cron
   # job check other relative entities
   # has been deleted
-  status = ndb.StringProperty()
+  status = ndb.StringProperty(default='')
+  success_worker = ndb.IntegerProperty(default=0)
+  fail_worker = ndb.IntegerProperty(default=0)
 
   @classmethod
   def query_by_page(cls, categories, cursor, forward, per_page, **params):
-
+    query = cls.query()
     if forward:
-      query = cls.query().order(cls.status, -cls.created, -cls._key)
-      query = query.filter(cls.status != 'deleting')
       if categories:
         query = query.filter(cls.category.IN(categories.split(',')))
 
+      query = query.filter(cls.status != 'deleting')
+      query = query.order(-cls.status, -cls.created, -cls._key)
       data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:
@@ -171,11 +175,11 @@ class Schedule(ndb.Model):
         params.update(pre_cursor=pre_cursor)
 
     else:
-      query = cls.query().order(cls.status, cls.created, cls._key)
-      query = query.filter(cls.status != 'deleting')
       if categories:
         query = query.filter(cls.category.IN(categories.split(',')))
 
+      query = query.filter(cls.status != 'deleting')
+      query = query.order(cls.status, cls.created, cls._key)
       data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:

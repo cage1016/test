@@ -44,29 +44,8 @@ indexes:
 
 - kind: Schedule
   properties:
-  - name: __key__
-    direction: desc
-
-- kind: Schedule
-  properties:
   - name: category
-  - name: __key__
-    direction: desc
-
-- kind: Schedule
-  properties:
-  - name: category
-  - name: created
-
-- kind: Schedule
-  properties:
-  - name: category
-  - name: created
-    direction: desc
-
-- kind: Schedule
-  properties:
-  - name: category
+  - name: status
   - name: created
     direction: desc
   - name: __key__
@@ -74,19 +53,26 @@ indexes:
 
 - kind: Schedule
   properties:
+  - name: category
+  - name: status
+    direction: desc
   - name: created
     direction: desc
   - name: __key__
     direction: desc
-
-- kind: Schedule
-  properties:
-  - name: schedule_timestamp
-  - name: error
 
 - kind: Schedule
   properties:
   - name: status
+  - name: created
+    direction: desc
+  - name: __key__
+    direction: desc
+
+- kind: Schedule
+  properties:
+  - name: status
+    direction: desc
   - name: created
     direction: desc
   - name: __key__
