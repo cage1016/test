@@ -19,7 +19,7 @@ from sendgrid import SendGridClient
 from sendgrid import Mail
 
 from models import LogEmail, LogFailEmail, ReTry, RecipientQueueData
-from utils import replace_edm_csv_property, enqueue_task, to_json_encodable
+from utils import replace_edm_csv_property
 import tasks
 
 import settings
@@ -74,10 +74,10 @@ class MiMailClient(object):
                     content=content)
 
     # update
-    tasks.addTask(['update-recipients-queue-data'],
-                  UpdateRecipientsQueueStatus,
-                  reciepient_queueu_data_key=recipient_queues.key,
-                  _countdown=countdown_sec)
+    # tasks.addTask(['update-recipients-queue-data'],
+    #               UpdateRecipientsQueueStatus,
+    #               reciepient_queueu_data_key=recipient_queues.key,
+    #               _countdown=countdown_sec)
 
   def resend(self, retries, countdown_sec):
 
@@ -132,7 +132,6 @@ class MiMailClient(object):
       for f in send_fail:
         tasks.addTask(['fail-log-save'], RetryFail, send=f, _countdown=countdown_sec)
 
-
   def _foke_http_post(self):
 
     # result = urlfetch.fetch(url='http://104.154.53.75', method=urlfetch.POST)
@@ -180,6 +179,7 @@ class MiMailClient(object):
 
 
 @ndb.toplevel
+@ndb.tasklet
 def RetryDelete(retries_keys):
   result = yield ndb.delete_multi_async(keys=retries_keys)
   raise ndb.Return(result)
