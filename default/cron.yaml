@@ -6,3 +6,7 @@ cron:
 - description: check fail email and resend
   url: /tasks/retry_check
   schedule: every 5 mins
+
+- description: check schedule deleting status
+  url: /tasks/check_schedule_delete
+  schedule: every 5 mins
