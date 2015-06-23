@@ -1,21 +1,26 @@
-from apiclient.errors import HttpError
-from google.appengine.ext.deferred import deferred
 import webapp2
 import logging
 import settings
+import httplib2
 
 from google.appengine.ext import ndb
 from models import RecipientQueueData, ReTry, Schedule, LogEmail, LogFailEmail
+from apiclient.errors import HttpError
 
-from datastore_utils import page_queries, Mapper
-from utils import timeit, enqueue_task
-import time
+from datastore_utils import Mapper
 import tasks
+
+from google.appengine.api import memcache
+from apiclient.discovery import build
+from oauth2client.appengine import AppAssertionCredentials
 
 
 class GCSResourcesDeleteHandler(webapp2.RequestHandler):
-  @settings.ValidateGCSWithCredential
   def post(self):
+    credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.full_control')
+    http = credentials.authorize(httplib2.Http(memcache))
+    gcs_service = build('storage', 'v1', http=http, developerKey=settings.DEVELOPER_KEY)
+
     object_name = self.request.get('object_name')
     bucket_name = self.request.get('bucket_name')
 
@@ -23,7 +28,7 @@ class GCSResourcesDeleteHandler(webapp2.RequestHandler):
 
     try:
 
-      req = self.gcs_service.objects().delete(bucket=bucket_name, object=object_name.encode('utf8'))
+      req = gcs_service.objects().delete(bucket=bucket_name, object=object_name.encode('utf8'))
       resp = req.execute()
 
     except HttpError, error:

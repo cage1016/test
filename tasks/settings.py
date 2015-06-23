@@ -64,20 +64,3 @@ SENDGRID = {
     'PASSWORD': 'Micloud@mitac168'
   }
 }
-
-
-
-def ValidateGCSWithCredential(function):
-  def _decorated(self, *args, **kwargs):
-
-    try:
-      credentials = AppAssertionCredentials(scope='https://www.googleapis.com/auth/devstorage.full_control')
-      http = credentials.authorize(httplib2.Http(memcache))
-      self.gcs_service = build('storage', 'v1', http=http, developerKey=DEVELOPER_KEY)
-
-    except Exception as e:
-      raise Exception(e.message)
-
-    return function(self, *args, **kwargs)
-
-  return _decorated
