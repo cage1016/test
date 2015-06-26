@@ -1,40 +1,23 @@
-import webapp2
+# coding: utf-8
+
 import logging
 
-from parser_handler import ParseCSVHandler
-from mailsend_handler import *
-from delete_handler import *
-from failmail_handler import *
+import webapp2
+from google.appengine.ext import ndb
 
 import tasks
+from handler.debug import ClearReTryHandler, ClearRecipientQueueDataHandler
+from handler.parser_handler import ParseCSVHandler
+from handler.mailsend_handler import ScheduleHandler
+from handler.delete_handler import GCSResourcesDeleteHandler, ScheduleDeleteCheckHandler, ScheduleDeleteHandler
+from handler.failmail_handler import RetryCheckHandler
+from recipient_queue_data_health import RecipientQueueDataHealthCheckHandler
 
 
 class TasksHandler(webapp2.RequestHandler):
   def get(self):
     logging.info("Get request to notification page.")
     self.response.write("Welcome to the tasks module.")
-
-
-class UpdateScheduleHandler(webapp2.RequestHandler):
-  def get(self):
-    schedule_mapper = ScheduleUpdateMapper(['schedule-delete-mapper'])
-    tasks.addTask(['schedule-delete-mapper'], schedule_mapper.run)
-
-
-class ScheduleUpdateMapper(Mapper):
-  KIND = Schedule
-
-  def __init__(self, tasks_queue):
-    super(ScheduleUpdateMapper, self).__init__()
-    self.tasks_queue = tasks_queue
-
-  def map(self, entity):
-    entity.status = ''
-
-    return ([entity], [])
-
-  def finish(self):
-    logging.info('update schedule status to default done')
 
 
 routes = [
@@ -46,9 +29,14 @@ routes = [
   (r'/tasks/check_schedule_delete', ScheduleDeleteCheckHandler),
 
   (r'/tasks/retry_check', RetryCheckHandler),
-  # (r'/tasks/update_schedule', UpdateScheduleHandler),
+
+  (r'/tasks/recipient_queue_data_health_check', RecipientQueueDataHealthCheckHandler),
 
   webapp2.Route('/tasks/_cb/deferred/<module>/<name>', tasks.DeferredHandler),
+
+  # debug only
+  (r'/tasks/clear_retry', ClearReTryHandler),
+  (r'/tasks/clear_recipient_queue_data', ClearRecipientQueueDataHandler),
 
   (r'/.*', TasksHandler)
 ]
