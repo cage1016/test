@@ -1,9 +1,15 @@
+# Copyright 2014 The Swarming Authors. All rights reserved.
+# Use of this source code is governed by the Apache v2.0 license that can be
+# found in the LICENSE file.
+"""Queries for incremental mapping."""
 from google.appengine.ext import ndb
-from google.appengine.ext.db import Timeout
-from google.appengine import runtime
+import time
 
-import tasks
-
+__all__ = [
+  'incremental_map',
+  'page_queries',
+  'pop_future_done',
+]
 ### Private stuff.
 def _process_chunk_of_items(
     map_fn, action_futures, items_to_process, max_inflight, map_page_size):
@@ -20,7 +26,6 @@ def _process_chunk_of_items(
   # just means there no async operation to wait on.
   action_futures.extend(map_fn(items_to_process[:map_page_size]) or [])
   return items_to_process[map_page_size:]
-  ### Public API.
 
 
 ### Public API.
@@ -31,12 +36,12 @@ def pop_future_done(futures):
       futures.pop(i)
 
 
-def page_queries(queries, fetch_page_size=20, keys_only=True):
+def page_queries(queries, fetch_page_size=20):
   """Yields all the items returned by the queries, page by page.
   It makes heavy use of fetch_page_async() for maximum efficiency.
   """
   queries = queries[:]
-  futures = [q.fetch_page_async(fetch_page_size, keys_only=keys_only) for q in queries]
+  futures = [q.fetch_page_async(fetch_page_size) for q in queries]
   while queries:
     i = futures.index(ndb.Future.wait_any(futures))
     results, cursor, more = futures[i].get_result()
@@ -46,85 +51,45 @@ def page_queries(queries, fetch_page_size=20, keys_only=True):
       futures.pop(i)
     else:
       futures[i] = queries[i].fetch_page_async(
-        fetch_page_size, start_cursor=cursor, keys_only=keys_only)
+        fetch_page_size, start_cursor=cursor)
     yield results
 
 
-from google.appengine.ext import deferred
-from google.appengine.runtime import DeadlineExceededError
+def incremental_map(
+    queries, map_fn, filter_fn=None, max_inflight=100, map_page_size=20,
+    fetch_page_size=20, max_execute_time=500):
+  """Applies |map_fn| to objects in a list of queries asynchrously.
+  This function is itself synchronous.
+  It's a mapper without a reducer.
+  Arguments:
+    queries: list of iterators of items to process.
+    map_fn: callback that accepts a list of objects to map and optionally
+            returns a list of ndb.Future.
+    filter_fn: optional callback that can filter out items from |query| from
+               deletion when returning False.
+    max_inflight: maximum limit of number of outstanding futures returned by
+                  |map_fn|.
+    map_page_size: number of items to pass to |map_fn| at a time.
+    fetch_page_size: number of items to retrieve from |queries| at a time.
+  """
+  timeout = time.time() + max_execute_time
+  finished = True
 
+  items_to_process = []
+  action_futures = []
+  for items in page_queries(queries, fetch_page_size=fetch_page_size):
+    items_to_process.extend(i for i in items if not filter_fn or filter_fn(i))
+    while len(items_to_process) >= map_page_size:
+      items_to_process = _process_chunk_of_items(
+        map_fn, action_futures, items_to_process, max_inflight, map_page_size)
 
-class Mapper(object):
-  # Subclasses should replace this with a model class (eg, model.Person).
-  KIND = None
+    if time.time() > timeout:
+      finished = False
+      break
 
-  # Subclasses can replace this with a list of (property, value) tuples to filter by.
-  FILTERS = []
+  while items_to_process:
+    items_to_process = _process_chunk_of_items(
+      map_fn, action_futures, items_to_process, max_inflight, map_page_size)
+  ndb.Future.wait_all(action_futures)
 
-  def __init__(self):
-    self.to_put = []
-    self.to_delete = []
-    self.tasks_queue = []
-
-  def map(self, entity):
-    """Updates a single entity.
-
-    Implementers should return a tuple containing two iterables (to_update, to_delete).
-    """
-    return ([], [])
-
-  def finish(self):
-    """Called when the mapper has finished, to allow for any final work to be done."""
-    pass
-
-  def get_query(self):
-    """Returns a query over the specified kind, with any appropriate filters applied."""
-    q = self.KIND.query()
-    for prop, value in self.FILTERS:
-      q = q.filter(prop == value)
-    q = q.order(self.KIND._key)
-    return q
-
-  def run(self, batch_size=100):
-    """Starts the mapper running."""
-    self._continue(None, batch_size)
-
-  def _batch_write(self):
-    """Writes updates and deletes entities in a batch."""
-    if self.to_put:
-      ndb.put_multi(self.to_put)
-      self.to_put = []
-    if self.to_delete:
-      ndb.delete_multi(self.to_delete)
-      self.to_delete = []
-
-  def _continue(self, start_key, batch_size):
-    q = self.get_query()
-    # If we're resuming, pick up where we left off last time.
-    if start_key:
-      key_prop = getattr(self.KIND, '_key')
-      q.filter(key_prop > start_key)
-    # Keep updating records until we run out of time.
-    try:
-      # Steps over the results, returning each entity and its index.
-      for i, entity in enumerate(q):
-        map_updates, map_deletes = self.map(entity)
-        self.to_put.extend(map_updates)
-        self.to_delete.extend(map_deletes)
-        # Do updates and deletes in batches.
-        if (i + 1) % batch_size == 0:
-          self._batch_write()
-        # Record the last entity we processed.
-        start_key = entity.key
-      self._batch_write()
-    except (Timeout,
-            runtime.DeadlineExceededError,
-            runtime.apiproxy_errors.CancelledError,
-            runtime.apiproxy_errors.DeadlineExceededError,
-            runtime.apiproxy_errors.OverQuotaError) as e:
-      # Write any unfinished updates to the datastore.
-      self._batch_write()
-      # Queue a new task to pick up where we left off.
-      tasks.addTask(self.tasks_queue, self._continue, start_key, batch_size)
-      return
-    self.finish()
+  return finished

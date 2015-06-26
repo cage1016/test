@@ -17,7 +17,7 @@ DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
 CHUNKSIZE = 1 * 1024 * 1024
 
 # ipwarmup schedule multiple put size
-QUEUE_CHUNKS_SIZE = 10
+QUEUE_CHUNKS_SIZE = 15
 
 # RecipientQueueData query fetch page size
 RECIPIENT_CHENKS_SIZE = 10
@@ -28,7 +28,7 @@ EDM_CONTENT_MEMCACHE_TIME = 7200
 
 # tasksqueue re-add time limited
 # csv_parser & schedule delete
-MAX_TASKSQUEUE_EXECUTED_TIME = 400
+MAX_TASKSQUEUE_EXECUTED_TIME = 500
 
 # recipient upload bucket
 BUCKET = 'cheerspoint-recipient'

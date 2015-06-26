@@ -21,7 +21,6 @@ from sendgrid import Mail
 
 from models import LogEmail, LogFailEmail, ReTry, RecipientQueueData
 from utils import replace_edm_csv_property
-import tasks
 
 import settings
 import random
@@ -230,7 +229,8 @@ class MiMailClient2(object):
     try:
       result = rpc.get_result()
       # return result.status_code, result.content
-      return random.choice([200] * 95 + [400] * 5), result.content
+      return random.choice([200] * 995 + [400] * 5), result.content
+      # return random.choice([200] * 100), result.content
 
     except urlfetch.DownloadError, e:
       return 400, e.message

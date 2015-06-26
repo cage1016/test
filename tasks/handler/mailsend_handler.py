@@ -1,18 +1,17 @@
 # coding: utf8
 
 import io
-import webapp2
 import logging
+
+import webapp2
 import httplib2
-
-from delorean import Delorean
-
 from google.appengine.api import memcache
 from apiclient.discovery import build
 from oauth2client.appengine import AppAssertionCredentials
 from apiclient.http import MediaIoBaseDownload
 
-from datastore_utils import Mapper
+from delorean import Delorean
+from mapper.mapper import Mapper
 from mimail_client import MiMailClient2
 from models import Schedule, RecipientQueueData
 import settings
@@ -54,6 +53,7 @@ class Mailer2(Mapper):
     self.count = 0
     self.success_worker = 0
     self.fail_worker = 0
+    self.schedule_key = schedule_key
     self.schedule_job = schedule_key.get()
 
     self.content = self.read_edm_file(self.schedule_job.edm_object_name)
@@ -109,5 +109,9 @@ class Mailer2(Mapper):
     self.schedule_job.schedule_executed = True
 
     self.schedule_job.put()
-    logging.info('mailer2 finished. count(%d), success_worker(%d), fail_worker(%d)' % (
+    logging.info('mailer2 finished. \ncount(%d), \nsuccess_worker(%d), \nfail_worker(%d)' % (
       self.count, self.success_worker, self.fail_worker))
+
+  def enqueue(self, start_key, batch_size):
+    new_mapper = Mailer2(self.schedule_key, self.tasks_queue)
+    tasks.addTask(self.tasks_queue, new_mapper._continue, start_key, batch_size)

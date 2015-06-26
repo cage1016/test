@@ -1,11 +1,10 @@
-import webapp2
 import logging
 
-from datastore_utils import Mapper
+import webapp2
+
+from mapper.mapper import Mapper
 from models import ReTry
-
 from mimail_client import MiMailClient2
-
 import settings
 import tasks
 
@@ -41,6 +40,9 @@ class RetrySendMapper(Mapper):
 
       self.to_put = []
       self.countdown_sec += 1
+
+  def enqueue(self, start_key, batch_size):
+    tasks.addTask(self.tasks_queue, self._continue, start_key, batch_size)
 
   def finish(self):
     logging.info('retry count= %d (chunks:%d)' % (self.retry_count, settings.QUEUE_CHUNKS_SIZE))

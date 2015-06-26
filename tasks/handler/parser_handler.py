@@ -3,6 +3,7 @@
 import pickle
 import webapp2
 import tasks
+import settings
 
 from csv_parser2 import Parser
 from models import Schedule
@@ -13,7 +14,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
     parameters = pickle.loads(self.request.get('parameters'))
 
     parser = Parser()
-    r = tasks.addTask(['parsecsv'], parser.run, parameters).get_result()
+    r = tasks.addTask(['parsecsv'], parser.run, parameters, settings.MAX_TASKSQUEUE_EXECUTED_TIME).get_result()
 
     if not r:
       new_schedule = Schedule()
@@ -39,6 +40,6 @@ class ParseCSVHandler(webapp2.RequestHandler):
       new_schedule.start_time = parameters.get('start_time')
       new_schedule.daily_capacity = int(parameters.get('daily_capacity'))
 
-      new_schedule.error = 'add schedule job fail. retry later.'
+      new_schedule.error = 'add schedule job taskqueue fail. retry later.'
 
       new_schedule.put()
