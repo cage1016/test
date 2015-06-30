@@ -22,7 +22,7 @@ class AsyncMapper(object):
     """
     raise NotImplementedError()
 
-  def finish(self):
+  def finish(self, more):
     """Called when the mapper has finished, to allow for any final work to be done."""
     pass
 
@@ -38,7 +38,7 @@ class AsyncMapper(object):
     """Starts the mapper running."""
     self._continue()
 
-  def enqueue(self):
+  def enqueue(self, c):
     """re enqueue processing.
 
     Returns:
@@ -46,18 +46,10 @@ class AsyncMapper(object):
     """
     raise NotImplementedError()
 
-  def _continue(self):
-    try:
-      finished = incremental_map([self.get_query()], map_fn=self.map_fn)
+  def _continue(self, start_cursor=None):
+    more, curosr = incremental_map([self.get_query()], map_fn=self.map_fn, start_cursor=start_cursor)
 
-      if not finished:
-        self.enqueue()
+    self.finish(more)
 
-    except (runtime.DeadlineExceededError,
-            runtime.apiproxy_errors.CancelledError,
-            runtime.apiproxy_errors.DeadlineExceededError,
-            runtime.apiproxy_errors.OverQuotaError):
-
-      self.enqueue()
-
-    self.finish()
+    if more:
+      self.enqueue(curosr)
