@@ -8,6 +8,7 @@ from google.appengine.ext import ndb
 import webapp2_extras.appengine.auth.models as auth_models
 
 import application.settings as settings
+from application import general_counter
 
 SIMPLE_TYPES = (int, long, float, bool, dict, basestring, list)
 
@@ -124,6 +125,8 @@ class Schedule(ndb.Model):
   hour_delta = ndb.IntegerProperty(default=0)
   # 每個小時發的容量
   hour_capacity = ndb.IntegerProperty(default=0)
+  # target
+  hour_target_capacity = ndb.IntegerProperty(default=0)
   # invalid email
   invalid_email = ndb.IntegerProperty(default=0)
   # 預設是將每天的量分成24小時間來發，
@@ -135,7 +138,8 @@ class Schedule(ndb.Model):
   # schedule display for human
   schedule_display = ndb.DateTimeProperty()
   # schedule has been executed
-  schedule_executed = ndb.BooleanProperty(default=False)
+  # schedule_executed = ndb.BooleanProperty(default=False)
+  # schedule_finished = ndb.BooleanProperty(default=False)
 
   txt_object_name = ndb.StringProperty()
   edm_object_name = ndb.StringProperty()
@@ -155,6 +159,22 @@ class Schedule(ndb.Model):
   success_worker = ndb.IntegerProperty(default=0)
   fail_worker = ndb.IntegerProperty(default=0)
 
+  # sharding counter name
+  sharding_count_name = ndb.StringProperty()
+
+  # delete mark
+  delete_mark_RecipientQueueData = ndb.BooleanProperty(default=False)
+  delete_mark_logEmail = ndb.BooleanProperty(default=False)
+  delete_mark_LogFailEmail = ndb.BooleanProperty(default=False)
+  delete_mark_ReTry = ndb.BooleanProperty(default=False)
+
+  def get_tasks_executed_count(self):
+    if self.sharding_count_name:
+      return general_counter.get_count(self.sharding_count_name)
+
+    else:
+      return 0
+
   @classmethod
   def query_by_page(cls, categories, cursor, forward, per_page, **params):
     query = cls.query()
@@ -162,8 +182,7 @@ class Schedule(ndb.Model):
       if categories:
         query = query.filter(cls.category.IN(categories.split(',')))
 
-      query = query.filter(cls.status != 'deleting')
-      query = query.order(-cls.status, -cls.created, -cls._key)
+      query = query.order(-cls.created, -cls._key)
       data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:
@@ -178,8 +197,7 @@ class Schedule(ndb.Model):
       if categories:
         query = query.filter(cls.category.IN(categories.split(',')))
 
-      query = query.filter(cls.status != 'deleting')
-      query = query.order(cls.status, cls.created, cls._key)
+      query = query.order(cls.created, cls._key)
       data, next_cursor, more = query.fetch_page(per_page, start_cursor=cursor)
 
       if next_cursor and more:
