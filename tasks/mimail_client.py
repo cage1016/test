@@ -21,6 +21,7 @@ from sendgrid import Mail
 
 from models import LogEmail, LogFailEmail, ReTry, RecipientQueueData
 from utils import replace_edm_csv_property
+import general_counter
 
 import settings
 import random
@@ -127,7 +128,7 @@ class MiMailClient2(object):
 
     return list_of_entities
 
-  def run(self, schedule, content, recipient_queues):
+  def run(self, schedule, content, recipient_queues, sharding_count_name):
     futures = []
     for recipient in json.loads(recipient_queues.data):
       message = Mail()
@@ -159,6 +160,8 @@ class MiMailClient2(object):
     if self.to_put:
       ndb.put_multi(self.to_put)
       self.to_put = []
+
+    general_counter.increment(sharding_count_name)
 
   def resend(self, retries):
     futures = []
@@ -218,7 +221,7 @@ class MiMailClient2(object):
       ndb.delete_multi(self.to_delete)
       self.to_delete = []
 
-  def _foke_http_post(self):
+  def _foke_http_post(self, num_true=None, num_false=None):
 
     # result = urlfetch.fetch(url='http://104.154.53.75', method=urlfetch.POST)
     # return result.status_code, result.content
@@ -228,8 +231,12 @@ class MiMailClient2(object):
 
     try:
       result = rpc.get_result()
-      # return result.status_code, result.content
-      return random.choice([200] * 995 + [400] * 5), result.content
+
+      if not num_true and not num_false:
+        return result.status_code, result.content
+
+      else:
+        return random.choice([200] * num_true + [400] * num_false), result.content
       # return random.choice([200] * 100), result.content
 
     except urlfetch.DownloadError, e:
@@ -240,7 +247,6 @@ class MiMailClient2(object):
       if settings.DEBUG or True:
         status, msg = self._foke_http_post()
 
-        # raise Exception('An error occured while connecting to the server: xxxxxx (foke error for debug)')
       else:
         status, msg = self.sg.send(message)
 
