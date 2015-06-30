@@ -1,6 +1,7 @@
 # coding=utf-8
 
 from google.appengine.ext import ndb
+import general_counter
 
 # should same as default/models.py
 class RecipientData(ndb.Expando):
@@ -34,6 +35,8 @@ class Schedule(ndb.Model):
   hour_delta = ndb.IntegerProperty(default=0)
   # 每個小時發的容量
   hour_capacity = ndb.IntegerProperty(default=0)
+  # target
+  hour_target_capacity = ndb.IntegerProperty(default=0)
   # invalid email
   invalid_email = ndb.IntegerProperty(default=0)
   # 預設是將每天的量分成24小時間來發，
@@ -45,7 +48,8 @@ class Schedule(ndb.Model):
   # schedule display for human
   schedule_display = ndb.DateTimeProperty()
   # schedule has been executed
-  schedule_executed = ndb.BooleanProperty(default=False)
+  # schedule_executed = ndb.BooleanProperty(default=False)
+  # schedule_finished = ndb.BooleanProperty(default=False)
 
   txt_object_name = ndb.StringProperty()
   edm_object_name = ndb.StringProperty()
@@ -64,6 +68,15 @@ class Schedule(ndb.Model):
   status = ndb.StringProperty(default='')
   success_worker = ndb.IntegerProperty(default=0)
   fail_worker = ndb.IntegerProperty(default=0)
+
+  # sharding counter name
+  sharding_count_name = ndb.StringProperty()
+
+  # delete mark
+  delete_mark_RecipientQueueData = ndb.BooleanProperty(default=False)
+  delete_mark_logEmail = ndb.BooleanProperty(default=False)
+  delete_mark_LogFailEmail = ndb.BooleanProperty(default=False)
+  delete_mark_ReTry = ndb.BooleanProperty(default=False)
 
 
 class LogEmail(ndb.Model):
