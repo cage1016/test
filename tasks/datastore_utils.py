@@ -36,12 +36,12 @@ def pop_future_done(futures):
       futures.pop(i)
 
 
-def page_queries(queries, fetch_page_size=20):
+def page_queries(queries, fetch_page_size=20, cursor=None):
   """Yields all the items returned by the queries, page by page.
   It makes heavy use of fetch_page_async() for maximum efficiency.
   """
   queries = queries[:]
-  futures = [q.fetch_page_async(fetch_page_size) for q in queries]
+  futures = [q.fetch_page_async(fetch_page_size, start_cursor=cursor) for q in queries]
   while queries:
     i = futures.index(ndb.Future.wait_any(futures))
     results, cursor, more = futures[i].get_result()
@@ -52,12 +52,12 @@ def page_queries(queries, fetch_page_size=20):
     else:
       futures[i] = queries[i].fetch_page_async(
         fetch_page_size, start_cursor=cursor)
-    yield results
+    yield results, cursor, more
 
 
 def incremental_map(
     queries, map_fn, filter_fn=None, max_inflight=100, map_page_size=20,
-    fetch_page_size=20, max_execute_time=500):
+    fetch_page_size=20, max_execute_time=500, start_cursor=None):
   """Applies |map_fn| to objects in a list of queries asynchrously.
   This function is itself synchronous.
   It's a mapper without a reducer.
@@ -73,18 +73,22 @@ def incremental_map(
     fetch_page_size: number of items to retrieve from |queries| at a time.
   """
   timeout = time.time() + max_execute_time
-  finished = True
+  more = None
+  curosr = None
 
   items_to_process = []
   action_futures = []
-  for items in page_queries(queries, fetch_page_size=fetch_page_size):
+  for items, _cursor, _more in page_queries(queries, fetch_page_size=fetch_page_size, cursor=start_cursor):
     items_to_process.extend(i for i in items if not filter_fn or filter_fn(i))
     while len(items_to_process) >= map_page_size:
       items_to_process = _process_chunk_of_items(
         map_fn, action_futures, items_to_process, max_inflight, map_page_size)
 
+
+    curosr = _cursor
+    more = _more
     if time.time() > timeout:
-      finished = False
+    # if True:
       break
 
   while items_to_process:
@@ -92,4 +96,4 @@ def incremental_map(
       map_fn, action_futures, items_to_process, max_inflight, map_page_size)
   ndb.Future.wait_all(action_futures)
 
-  return finished
+  return more, curosr
