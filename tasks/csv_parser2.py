@@ -4,13 +4,14 @@ import io
 import logging
 import csv
 import json
+import random
 import time
 import pickle
 import tasks
 from apiclient.http import MediaIoBaseDownload
 from google.appengine.api import memcache
 from apiclient.errors import HttpError
-from httplib import HTTPException
+from httplib import HTTPException, error
 from google.appengine.api import urlfetch_errors
 
 from google.appengine.ext import ndb
@@ -174,7 +175,6 @@ class Parser(object):
       try:
         content = self.read_edm_file(gcs_service, self.edm_object_name)
         test_ = unicode(content, 'utf8')
-        logging.info('%s utf8 check ok.' % self.edm_object_name)
 
       except Exception:
         raise ValueError('%s encode utf8 error.' % self.edm_object_name)
@@ -204,12 +204,14 @@ class Parser(object):
             self.new_schedule.schedule_timestamp = _d.epoch()
             self.new_schedule.schedule_display = _d.naive()
 
+            self.new_schedule.hour_target_capacity = job_sending_rate[self.hour_index]
             self.new_schedule.hour_delta = (self.hour_index + 1)
             self.new_schedule.hour_rate = '1/%dhrs' % self.hour_rate
 
             self.new_schedule.txt_object_name = self.txt_object_name
             self.new_schedule.edm_object_name = self.edm_object_name
             self.new_schedule.replace_edm_csv_property = self.replace_edm_csv_property
+            self.new_schedule.status = 'parsing'
             self.new_schedule.put()
 
           self.last_hour_index = self.hour_index
@@ -228,6 +230,9 @@ class Parser(object):
             self.count = 0
 
           # move hour index to next hour
+          # set current schedule job status to empty and move to next schedule
+          self.new_schedule.status = ''
+          self.new_schedule.put()
           self.hour_index += 1
 
         # force put to taskqueue if hit max taskqueue send data size limit
@@ -269,15 +274,10 @@ class Parser(object):
 
         self.finish()
 
-    except (runtime.DeadlineExceededError,
-            runtime.apiproxy_errors.CancelledError,
-            runtime.apiproxy_errors.DeadlineExceededError,
-            runtime.apiproxy_errors.OverQuotaError,
-            urlfetch_errors.DeadlineExceededError,
-            urlfetch_errors.Error,
-            HTTPException) as e:
+    except HttpError as e:
 
-      logging.debug('error (%s): %s, auto enqueue_task again later.', e.__class__.__name__, e.message)
+      logging.warning('error (%s): %s, auto enqueue_task again later.', e.__class__.__name__, e.message)
+      time.sleep(random.random() * 2 ** 1)
 
       self.enqueue_handle()
 
@@ -294,14 +294,9 @@ class Parser(object):
       self.new_schedule.txt_object_name = self.txt_object_name
       self.new_schedule.edm_object_name = self.edm_object_name
       self.new_schedule.replace_edm_csv_property = self.replace_edm_csv_property
-
-      if isinstance(e, HttpError):
-        self.new_schedule.error = '%s, %s' % (e.content, e.uri)
-
-      else:
-        self.new_schedule.error = '%s, %s' % (e.__class__.__name__, e.message)
-
+      self.new_schedule.error = '%s, %s' % (e.__class__.__name__, e.message)
       self.new_schedule.put()
+
       self.finish(self.new_schedule.error)
 
   def enqueue_handle(self):
@@ -347,10 +342,14 @@ class Parser(object):
 
   def finish(self, error=None):
     if error:
+      self.new_schedule.status = 'error'
       logging.info('========== parser job throw execption (%s). done. ==========' % error)
 
     else:
+      self.new_schedule.status = ''
       logging.info('========== parser job done. ==========')
+
+    self.new_schedule.put()
 
   def _batch_write(self):
     if self.list_of_rqd:
