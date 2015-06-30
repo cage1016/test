@@ -10,6 +10,7 @@ from oauth2client.appengine import AppAssertionCredentials
 
 import settings
 from models import RecipientQueueData, ReTry, Schedule, LogEmail, LogFailEmail
+from general_counter import GeneralCounterShardConfig, GeneralCounterShard, SHARD_KEY_TEMPLATE
 from mapper.mapper_async import AsyncMapper
 import tasks
 
@@ -36,13 +37,8 @@ class GCSResourcesDeleteHandler(webapp2.RequestHandler):
 
 class ScheduleDeleteCheckHandler(webapp2.RequestHandler):
   def check_schedule_procress(self, schedule):
-    done_RecipientQueueData = True if not RecipientQueueData.query(
-      RecipientQueueData.schedule_key == schedule.key).get() else False
-    done_logEmail = True if not LogFailEmail.query(LogFailEmail.schedule_key == schedule.key).get() else False
-    done_FailLogEmail = True if not LogFailEmail.query(LogFailEmail.schedule_key == schedule.key).get() else False
-    done_Retry = True if not ReTry.query(ReTry.schedule_key == schedule.key).get() else False
 
-    if done_RecipientQueueData and done_logEmail and done_FailLogEmail and done_Retry:
+    if schedule.delete_mark_ReTry and schedule.delete_mark_logEmail and schedule.delete_mark_LogFailEmail and schedule.delete_mark_RecipientQueueData:
       schedule.key.delete()
       logging.info('delete %s - %s all done (RecipientsQueueData, logEmail, FailLogEmail, Retry)' % (
         schedule.subject, schedule.category))
@@ -77,6 +73,20 @@ class ScheduleDeleteHandler(webapp2.RequestHandler):
       schedule.status = 'deleting'
       schedule.put()
 
+      # delete sharding count
+      if schedule.sharding_count_name:
+        config = ndb.Key(GeneralCounterShardConfig, schedule.sharding_count_name).get()
+        if config:
+          shard_key_strings = [SHARD_KEY_TEMPLATE.format(schedule.sharding_count_name, index)
+                               for index in range(config.num_shards)]
+
+          ndb.delete_multi([ndb.Key(GeneralCounterShard, shard_key_string) for shard_key_string in shard_key_strings])
+          config.key.delete()
+
+        mem_sharding_count = memcache.get(schedule.sharding_count_name)
+        if mem_sharding_count:
+          memcache.delete(schedule.sharding_count_name)
+
       mapper_RecipientQueueData = RecipientQueueDataDeleteMapper(schedule.key, ['schedule-delete-mapper'])
       mapper_logEmail = LogEmailDeleteMapper(schedule.key, ['schedule-delete-mapper'])
       mapper_FailLogEmail = LogFailEmailDeleteMapper(schedule.key, ['schedule-delete-mapper'])
@@ -103,18 +113,24 @@ class RetryDeleteMapper(AsyncMapper):
     for entity in entities:
       yield entity.key.delete_async()
 
-  def enqueue(self):
-    new_mapper = RetryDeleteMapper(self.schedule_key, self.tasks_queue)
-    tasks.addTask(self.tasks_queue, new_mapper._continue)
+  def enqueue(self, next_cursor):
+    # new_mapper = RetryDeleteMapper(self.schedule_key, self.tasks_queue)
+    # tasks.addTask(self.tasks_queue, new_mapper._continue)
+    tasks.addTask(self.tasks_queue, self._continue, next_cursor)
 
-  def finish(self):
+  @ndb.transactional(retries=2)
+  def finish(self, more):
     schedule = self.schedule_key.get()
-    if schedule:
-      logging.info('ReTry Delete Done (%d)\nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+    if more:
+      logging.info('ReTry has been deleted (%d) not done. \nsubject: %s\ncategory: %s\nschedule: %s', self.count,
                    schedule.subject, schedule.category, schedule.schedule_display)
 
     else:
-      logging.info('ReTry Delete Done (%d)' % self.count)
+      schedule.delete_mark_ReTry = True
+      schedule.put()
+
+      logging.info('ReTry delete done (%d). \nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+                   schedule.subject, schedule.category, schedule.schedule_display)
 
 
 class LogEmailDeleteMapper(AsyncMapper):
@@ -132,18 +148,24 @@ class LogEmailDeleteMapper(AsyncMapper):
     for entity in entities:
       yield entity.key.delete_async()
 
-  def enqueue(self):
-    new_mapper = LogEmailDeleteMapper(self.schedule_key, self.tasks_queue)
-    tasks.addTask(self.tasks_queue, new_mapper._continue)
+  def enqueue(self, next_cursor):
+    # new_mapper = LogEmailDeleteMapper(self.schedule_key, self.tasks_queue)
+    # tasks.addTask(self.tasks_queue, new_mapper._continue)
+    tasks.addTask(self.tasks_queue, self._continue, next_cursor)
 
-  def finish(self):
+  @ndb.transactional(retries=2)
+  def finish(self, more):
     schedule = self.schedule_key.get()
-    if schedule:
-      logging.info('LogEmail Delete Done (%d)\nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+    if more:
+      logging.info('LogEmail has been deleted (%d) not done. \nsubject: %s\ncategory: %s\nschedule: %s', self.count,
                    schedule.subject, schedule.category, schedule.schedule_display)
 
     else:
-      logging.info('LogEmail Delete Done (%d)' % self.count)
+      schedule.delete_mark_logEmail = True
+      schedule.put()
+
+      logging.info('LogEmail delete done (%d). \nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+                   schedule.subject, schedule.category, schedule.schedule_display)
 
 
 class LogFailEmailDeleteMapper(AsyncMapper):
@@ -161,18 +183,24 @@ class LogFailEmailDeleteMapper(AsyncMapper):
     for entity in entities:
       yield entity.key.delete_async()
 
-  def enqueue(self):
-    new_mapper = LogFailEmailDeleteMapper(self.schedule_key, self.tasks_queue)
-    tasks.addTask(self.tasks_queue, new_mapper._continue)
+  def enqueue(self, next_cursor):
+    # new_mapper = LogFailEmailDeleteMapper(self.schedule_key, self.tasks_queue)
+    # tasks.addTask(self.tasks_queue, new_mapper._continue)
+    tasks.addTask(self.tasks_queue, self._continue, next_cursor)
 
-  def finish(self):
+  @ndb.transactional(retries=2)
+  def finish(self, more):
     schedule = self.schedule_key.get()
-    if schedule:
-      logging.info('LogFailEmail Delete Done (%d)\nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+    if more:
+      logging.info('LogFailEmail has been deleted (%d) not done. \nsubject: %s\ncategory: %s\nschedule: %s', self.count,
                    schedule.subject, schedule.category, schedule.schedule_display)
 
     else:
-      logging.info('LogFailEmail Delete Done (%d)' % self.count)
+      schedule.delete_mark_LogFailEmail = True
+      schedule.put()
+
+      logging.info('LogFailEmail delete done (%d). \nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+                   schedule.subject, schedule.category, schedule.schedule_display)
 
 
 class RecipientQueueDataDeleteMapper(AsyncMapper):
@@ -190,15 +218,22 @@ class RecipientQueueDataDeleteMapper(AsyncMapper):
     for entity in entities:
       yield entity.key.delete_async()
 
-  def enqueue(self):
-    new_mapper = RecipientQueueDataDeleteMapper(self.schedule_key, self.tasks_queue)
-    tasks.addTask(self.tasks_queue, new_mapper._continue)
+  def enqueue(self, next_cursor):
+    # new_mapper = RecipientQueueDataDeleteMapper(self.schedule_key, self.tasks_queue)
+    # tasks.addTask(self.tasks_queue, new_mapper._continue)
+    tasks.addTask(self.tasks_queue, self._continue, next_cursor)
 
-  def finish(self):
+  @ndb.transactional(retries=2)
+  def finish(self, more):
     schedule = self.schedule_key.get()
-    if schedule:
-      logging.info('RecipientQueueData Delete Done (%d)\nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+    if more:
+      logging.info('RecipientQueueData has been deleted (%d) not done. \nsubject: %s\ncategory: %s\nschedule: %s',
+                   self.count,
                    schedule.subject, schedule.category, schedule.schedule_display)
 
     else:
-      logging.info('RecipientQueueData Delete Done (%d)' % self.count)
+      schedule.delete_mark_RecipientQueueData = True
+      schedule.put()
+
+      logging.info('RecipientQueueData delete done (%d). \nsubject: %s\ncategory: %s\nschedule: %s', self.count,
+                   schedule.subject, schedule.category, schedule.schedule_display)
