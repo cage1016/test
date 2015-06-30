@@ -13,6 +13,8 @@ from handler.delete_handler import GCSResourcesDeleteHandler, ScheduleDeleteChec
 from handler.failmail_handler import RetryCheckHandler
 from recipient_queue_data_health import RecipientQueueDataHealthCheckHandler
 
+from handler.dumps import LogEailDumperHandler
+
 
 class TasksHandler(webapp2.RequestHandler):
   def get(self):
@@ -37,6 +39,8 @@ routes = [
   # debug only
   (r'/tasks/clear_retry', ClearReTryHandler),
   (r'/tasks/clear_recipient_queue_data', ClearRecipientQueueDataHandler),
+
+  (r'/tasks/logemail_dump', LogEailDumperHandler),
 
   (r'/.*', TasksHandler)
 ]
