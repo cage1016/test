@@ -65,22 +65,37 @@ class ScheduleApi(remote.Service):
       c = parse(model.created.strftime('%Y-%m-%d %H:%M:%S'))
       c = c.datetime + datetime.timedelta(hours=8)
 
+      # update
+      if model.status != 'finished':
+        if model.success_worker == model.get_tasks_executed_count() and (model.success_worker > 0 or model.fail_worker > 0):
+          model.status = 'finished'
+          model.put()
+
       schedule = SchedulesResponseMessage(
         urlsafe=model.key.urlsafe(),
         sendgrid_account=model.sendgrid_account,
         subject=model.subject,
         category=model.category,
         schedule_display=d.strftime('%Y-%m-%d %H:%M:%S'),
-        schedule_executed=model.schedule_executed,
         hour_delta=model.hour_delta,
         hour_capacity=model.hour_capacity,
+        hour_target_capacity=model.hour_target_capacity,
         hour_rate=model.hour_rate,
         txt_object_name=model.txt_object_name.split('/')[-1],
         edm_object_name=model.edm_object_name.split('/')[-1],
         replace_edm_csv_property=model.replace_edm_csv_property,
         invalid_email=model.invalid_email,
         error=model.error,
-        created=c.strftime('%Y-%m-%d %H:%M:%S')
+        created=c.strftime('%Y-%m-%d %H:%M:%S'),
+        success_worker=model.success_worker,
+        fail_worker=model.fail_worker,
+        # tasks_executed_count=model.get_tasks_executed_count(),
+        status=model.status,
+        unsend_recipients_log=model.unsend_recipients_log,
+        send_recipients_log=model.send_recipients_log,
+        sender_name=model.sender_name,
+        sender_email=model.sender_email,
+        is_dry_run=model.is_dry_run
       )
       schedules.append(schedule)
 

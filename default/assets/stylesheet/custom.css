@@ -160,3 +160,9 @@ tr.reactable-filterer td {
 #list-ip-warmup-schedule div.well{
     margin-bottom: 0px;
 }
+
+.controller-panel > .form-inline .form-group,
+.controller-panel > .form-inline input,
+.controller-panel > .form-inline button{
+    margin-left: 5px;
+}

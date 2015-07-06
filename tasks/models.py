@@ -78,6 +78,14 @@ class Schedule(ndb.Model):
   delete_mark_LogFailEmail = ndb.BooleanProperty(default=False)
   delete_mark_ReTry = ndb.BooleanProperty(default=False)
 
+  # dump, gcs download path
+  unsend_recipients_log = ndb.StringProperty(default='')
+  send_recipients_log = ndb.StringProperty(default='')
+
+  # for test
+  is_dry_run = ndb.BooleanProperty(default=False)
+  dry_run_fail_rate = ndb.FloatProperty(default=0.0)
+
 
 class LogEmail(ndb.Model):
   schedule_key = ndb.KeyProperty(kind='Schedule', required=True)
@@ -97,12 +105,16 @@ class LogEmail(ndb.Model):
   schedule_timestamp = ndb.FloatProperty()
   schedule_display = ndb.DateTimeProperty()
 
-  when_timestamp = ndb.FloatProperty()
-  when_display = ndb.DateTimeProperty()
-
   created = ndb.DateTimeProperty(auto_now_add=True)
   sendgrid_account = ndb.StringProperty()
   fails_link = ndb.KeyProperty(kind='LogFailEmail', repeated=True)
+
+  # for test
+  is_dry_run = ndb.BooleanProperty(default=False)
+  dry_run_fail_rate = ndb.FloatProperty(default=0.0)
+
+  # csv
+  csv_properties = ndb.StringProperty(default='')
 
 
 class LogFailEmail(LogEmail):

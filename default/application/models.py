@@ -168,6 +168,14 @@ class Schedule(ndb.Model):
   delete_mark_LogFailEmail = ndb.BooleanProperty(default=False)
   delete_mark_ReTry = ndb.BooleanProperty(default=False)
 
+  # dump, gcs download path
+  unsend_recipients_log = ndb.StringProperty(default='')
+  send_recipients_log = ndb.StringProperty(default='')
+
+  # for test
+  is_dry_run = ndb.BooleanProperty(default=False)
+  dry_run_fail_rate = ndb.FloatProperty(default=0.0)
+
   def get_tasks_executed_count(self):
     if self.sharding_count_name:
       return general_counter.get_count(self.sharding_count_name)
