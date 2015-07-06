@@ -20,7 +20,7 @@ from sendgrid import SendGridClient
 from sendgrid import Mail
 
 from models import LogEmail, LogFailEmail, ReTry, RecipientQueueData
-from utils import replace_edm_csv_property
+from utils import replace_edm_csv_property, true_false_pick
 import general_counter
 
 import settings
@@ -55,7 +55,10 @@ class MiMailClient2(object):
         # body=data.get('body'),
         schedule_timestamp=schedule.schedule_timestamp,
         schedule_display=schedule.schedule_display,
-        sendgrid_account=schedule.sendgrid_account
+        sendgrid_account=schedule.sendgrid_account,
+        is_dry_run=schedule.is_dry_run,
+        dry_run_fail_rate=schedule.dry_run_fail_rate,
+        csv_properties=pickle.dumps(send.get('recipient'))
       )
       list_of_entities.append(log_email)
 
@@ -77,7 +80,10 @@ class MiMailClient2(object):
         schedule_timestamp=schedule.schedule_timestamp,
         schedule_display=schedule.schedule_display,
         sendgrid_account=schedule.sendgrid_account,
-        reason=send.get('msg')
+        reason=send.get('msg'),
+        is_dry_run=schedule.is_dry_run,
+        dry_run_fail_rate=schedule.dry_run_fail_rate,
+        csv_properties=pickle.dumps(send.get('recipient'))
       )
       list_of_entities.append(log_fail_email)
 
@@ -98,7 +104,10 @@ class MiMailClient2(object):
         # body=data.get('body'),
         schedule_timestamp=send.get('fail_log').schedule_timestamp,
         schedule_display=send.get('fail_log').schedule_display,
-        sendgrid_account=send.get('fail_log').sendgrid_account
+        sendgrid_account=send.get('fail_log').sendgrid_account,
+        is_dry_run=send.get('fail_log').is_dry_run,
+        dry_run_fail_rate=send.get('fail_log').dry_run_fail_rate,
+        csv_properties=send.get('fail_log').csv_properties
       )
       log_email.fails_link.append(send.get('fail_log').key)
 
@@ -122,7 +131,10 @@ class MiMailClient2(object):
         schedule_timestamp=send.get('fail_log').schedule_timestamp,
         schedule_display=send.get('fail_log').schedule_display,
         sendgrid_account=send.get('fail_log').sendgrid_account,
-        reason=send.get('msg')
+        reason=send.get('msg'),
+        is_dry_run=send.get('fail_log').is_dry_run,
+        dry_run_fail_rate=send.get('fail_log').dry_run_fail_rate,
+        csv_properties=send.get('fail_log').csv_properties
       )
       list_of_entities.append(log_fail_email)
 
@@ -140,7 +152,7 @@ class MiMailClient2(object):
       message.add_to(recipient.get('email'))
       message.add_category(schedule.category)
 
-      status, msg = self._send(message)
+      status, msg = self._send(message, schedule.is_dry_run, schedule.dry_run_fail_rate)
       futures.append(dict(recipient=recipient, status=status, msg=msg))
 
     send_success = filter(lambda f: f.get('status') == 200, futures)
@@ -187,7 +199,7 @@ class MiMailClient2(object):
         message.add_to(fail_log.to)
         message.add_category(fail_log.category)
 
-        status, msg = self._send(message)
+        status, msg = self._send(message, fail_log.is_dry_run, fail_log.dry_run_fail_rate)
         futures.append(dict(fail_log=fail_log, status=status, msg=msg))
 
     # split log to another task to save
@@ -221,31 +233,35 @@ class MiMailClient2(object):
       ndb.delete_multi(self.to_delete)
       self.to_delete = []
 
-  def _foke_http_post(self, num_true=None, num_false=None):
+  def _foke_http_post(self, dry_run_fail_rate):
+    """foke http request from GCS foke server
 
-    # result = urlfetch.fetch(url='http://104.154.53.75', method=urlfetch.POST)
-    # return result.status_code, result.content
+    Args:
+      dry_run_fail_rate: float, True/False rate 0.0 ~ 1.0
+
+    Returns:
+      True or False depend by fail rate
+    """
 
     rpc = urlfetch.create_rpc()
     urlfetch.make_fetch_call(rpc, url='http://104.154.53.75', method=urlfetch.POST)
 
     try:
       result = rpc.get_result()
-
-      if not num_true and not num_false:
-        return result.status_code, result.content
+      r = true_false_pick(dry_run_fail_rate)
+      if r:
+        return 200, result.content
 
       else:
-        return random.choice([200] * num_true + [400] * num_false), result.content
-      # return random.choice([200] * 100), result.content
+        return 400, '{"message": "fake fail"}'
 
     except urlfetch.DownloadError, e:
       return 400, e.message
 
-  def _send(self, message):
+  def _send(self, message, is_dry_run, dry_run_fail_rate):
     try:
-      if settings.DEBUG or True:
-        status, msg = self._foke_http_post()
+      if is_dry_run:
+        status, msg = self._foke_http_post(dry_run_fail_rate)
 
       else:
         status, msg = self.sg.send(message)
