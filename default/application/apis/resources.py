@@ -1,20 +1,18 @@
 __author__ = 'cage'
 
 import logging
-import json
+from delorean import parse
+import datetime
 
 from protorpc import remote
-from application.controllers.base import ValidateGCSWithCredential
+
 from application.apis.resources_messages import *
 from application.settings import cheerspoint_api
 from application.models import Resource
 
 from google.appengine.datastore.datastore_query import Cursor
-from google.appengine.ext.db import Error, BadValueError
+from google.appengine.ext.db import BadValueError
 from google.appengine.ext import ndb
-from apiclient.http import MediaInMemoryUpload
-from apiclient import errors
-
 from google.appengine.api.taskqueue import taskqueue
 
 import application.settings as settings
@@ -58,13 +56,16 @@ class ResourceApi(remote.Service):
 
     resources = []
     for model in query.get('data'):
+      d = parse(model.created.strftime('%Y-%m-%d %H:%M:%S'))
+      d = d.datetime + datetime.timedelta(hours=8)
+
       resource = ResourcesResponseMessage(
         object_name=model.object_name,
         display_name=model.display_name,
         bucket=model.bucket,
         size=model.size,
         content_type=model.content_type,
-        created=model.created.strftime('%Y-%m-%d %H:%M:%S'),
+        created=d.strftime('%Y-%m-%d %H:%M:%S'),
         urlsafe=model.key.urlsafe()
       )
       resources.append(resource)
