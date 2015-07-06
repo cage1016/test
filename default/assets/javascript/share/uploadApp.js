@@ -138,8 +138,7 @@ var uploadApp = React.createClass({
     api.inertResource(data).done(function (resource) {
       this.stopSpinner('spinner');
 
-      var o = this.state.resources;
-      o.push(resource);
+      var o = [resource].concat(this.state.resources);
       this.setState({'resources': o});
 
     }.bind(this));
