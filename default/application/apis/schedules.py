@@ -16,6 +16,7 @@ from google.appengine.ext.db import Error, BadValueError
 from google.appengine.ext import ndb
 
 from google.appengine.api.taskqueue import taskqueue
+from application.utils import enqueue_task
 from application.GCSSignedUrlGenerator import get_signed_url
 
 import application.settings as settings
@@ -200,26 +201,16 @@ class ScheduleApi(remote.Service):
 
     logging.info(parameters)
 
-    try:
-      if not settings.DEBUG:
-        taskqueue.add(url='/tasks/parsecsv',
-                      params={
-                        'parameters': pickle.dumps(parameters)
-                      },
-                      queue_name='parsecsv')
-      else:
+    r = enqueue_task(url='/tasks/parsecsv',
+                     queue_name='parsecsv',
+                     params={
+                       'parameters': pickle.dumps(parameters)
+                     })
 
-
-        logging.info(
-          '/_ah/spi is not a dispatchable path, task queue:delete_resources won\'t be executed at development env. ')
-
-    except taskqueue.Error, error:
-      logging.error('An error occurred in endpoints APIs: %s' % error)
-
-    return SchedulesInsertResponse(msg='ok')
+    return SchedulesInsertResponse(msg=str(r))
 
   @endpoints.method(SCHEDULES_DELETE_RESOURCE,
-                    SchedulesDeleteResponse,
+                    SchedulesResponseMessage,
                     name='delete',
                     http_method='DELETE',
                     path='schedules/{id}')
@@ -230,23 +221,55 @@ class ScheduleApi(remote.Service):
     if schedule:
 
       try:
-        # schedule.key.delete()
+        schedule.status = 'deleting'
+        schedule.put()
 
-        if not settings.DEBUG:
-          taskqueue.add(url='/tasks/delete_schedule',
-                        params={
-                          'urlsafe': request.id
-                        },
-                        queue_name='resource-delete')
+        taskqueue.add(url='/tasks/delete_schedule',
+                      params={
+                        'urlsafe': request.id
+                      },
+                      queue_name='resource-delete')
 
-        else:
-          logging.info(
-            '/_ah/spi is not a dispatchable path, task queue:delete_schedule won\'t be executed at development env. ')
+
 
       except taskqueue.Error, error:
         logging.error('An error occurred in endpoints APIs: %s' % error)
 
-    return SchedulesDeleteResponse(urlsafe=request.id)  @endpoints.method(SCHEDULES_DUMP_RESOURCE,
+      d = parse(schedule.schedule_display.strftime('%Y-%m-%d %H:%M:%S'))
+      d = d.datetime + datetime.timedelta(hours=8)
+
+      c = parse(schedule.created.strftime('%Y-%m-%d %H:%M:%S'))
+      c = c.datetime + datetime.timedelta(hours=8)
+
+      srm = SchedulesResponseMessage(
+        urlsafe=schedule.key.urlsafe(),
+        sendgrid_account=schedule.sendgrid_account,
+        subject=schedule.subject,
+        category=schedule.category,
+        schedule_display=d.strftime('%Y-%m-%d %H:%M:%S'),
+        hour_delta=schedule.hour_delta,
+        hour_capacity=schedule.hour_capacity,
+        hour_target_capacity=schedule.hour_target_capacity,
+        hour_rate=schedule.hour_rate,
+        txt_object_name=schedule.txt_object_name.split('/')[-1],
+        edm_object_name=schedule.edm_object_name.split('/')[-1],
+        replace_edm_csv_property=schedule.replace_edm_csv_property,
+        invalid_email=schedule.invalid_email,
+        error=schedule.error,
+        created=c.strftime('%Y-%m-%d %H:%M:%S'),
+        success_worker=schedule.success_worker,
+        fail_worker=schedule.fail_worker,
+        tasks_executed_count=schedule.get_tasks_executed_count(),
+        status=schedule.status,
+        unsend_recipients_log=schedule.unsend_recipients_log,
+        send_recipients_log=schedule.send_recipients_log,
+        is_dry_run=schedule.is_dry_run
+      )
+      return srm
+
+    else:
+      return SchedulesResponseMessage()
+
   @endpoints.method(SCHEDULES_DUMP_RESOURCE,
                     SchedulesResponseMessage,
                     name='dump',
