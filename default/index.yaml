@@ -35,6 +35,12 @@ indexes:
   properties:
   - name: status
 
+- kind: RecipientQueueDataHealth
+  properties:
+  - name: schedule_key
+  - name: created
+    direction: desc
+
 - kind: Resource
   properties:
   - name: created
@@ -45,7 +51,6 @@ indexes:
 - kind: Schedule
   properties:
   - name: category
-  - name: status
   - name: created
     direction: desc
   - name: __key__
@@ -53,17 +58,6 @@ indexes:
 
 - kind: Schedule
   properties:
-  - name: category
-  - name: status
-    direction: desc
-  - name: created
-    direction: desc
-  - name: __key__
-    direction: desc
-
-- kind: Schedule
-  properties:
-  - name: status
   - name: created
     direction: desc
   - name: __key__
