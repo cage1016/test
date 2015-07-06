@@ -11,6 +11,7 @@ import tasks
 from apiclient.http import MediaIoBaseDownload
 from google.appengine.api import memcache
 from apiclient.errors import HttpError
+from httplib2 import HttpLib2Error
 from httplib import HTTPException, error
 from google.appengine.api import urlfetch_errors
 
@@ -107,6 +108,9 @@ class Parser(object):
     self.last_hour_index = int(parameters.get('last_hour_index')) if parameters.__contains__('last_hour_index') else -1
     self.bytes_read = int(parameters.get('bytes_read')) if parameters.__contains__('bytes_read') else 0
     self.csv_fieldnames = parameters.get('csv_fieldnames')
+
+    self.is_dry_run = parameters.get('is_dry_run') if parameters.__contains__('is_dry_run') else False
+    self.dry_run_fail_rate = parameters.get('dry_run_fail_rate') if parameters.__contains__('dry_run_fail_rate') else 0.0
 
     self.new_schedule = ndb.Key(urlsafe=parameters.get('new_schedule_key_urlsafe')).get() if parameters.__contains__(
       'new_schedule_key_urlsafe') else None
@@ -212,6 +216,9 @@ class Parser(object):
             self.new_schedule.edm_object_name = self.edm_object_name
             self.new_schedule.replace_edm_csv_property = self.replace_edm_csv_property
             self.new_schedule.status = 'parsing'
+
+            self.new_schedule.is_dry_run = self.is_dry_run
+            self.new_schedule.dry_run_fail_rate = self.dry_run_fail_rate
             self.new_schedule.put()
 
           self.last_hour_index = self.hour_index
@@ -274,7 +281,7 @@ class Parser(object):
 
         self.finish()
 
-    except HttpError as e:
+    except (HttpError, HttpLib2Error) as e:
 
       logging.warning('error (%s): %s, auto enqueue_task again later.', e.__class__.__name__, e.message)
       time.sleep(random.random() * 2 ** 1)
@@ -282,6 +289,9 @@ class Parser(object):
       self.enqueue_handle()
 
     except Exception as e:
+
+      logging.error(str(e))
+
       self.new_schedule = Schedule()
       self.new_schedule.sendgrid_account = self.sendgrid_account
       self.new_schedule.subject = self.subject
@@ -295,6 +305,8 @@ class Parser(object):
       self.new_schedule.edm_object_name = self.edm_object_name
       self.new_schedule.replace_edm_csv_property = self.replace_edm_csv_property
       self.new_schedule.error = '%s, %s' % (e.__class__.__name__, e.message)
+      self.new_schedule.is_dry_run = self.is_dry_run
+      self.new_schedule.dry_run_fail_rate = self.dry_run_fail_rate
       self.new_schedule.put()
 
       self.finish(self.new_schedule.error)
@@ -333,6 +345,9 @@ class Parser(object):
       'last_hour_index': self.last_hour_index,
       'bytes_read': self.gcs_iterator._bytes_read,
       'csv_fieldnames': self.csv_reader.fieldnames,
+
+      'is_dry_run': self.is_dry_run,
+      'dry_run_fail_rate': self.dry_run_fail_rate,
 
       'new_schedule_key_urlsafe': self.new_schedule.key.urlsafe()
     }

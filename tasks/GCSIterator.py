@@ -1,8 +1,9 @@
+import random
 import re
 import logging
+import time
 
 from apiclient.errors import HttpError
-
 
 DEFAULT_CHUNK_SIZE = 512 * 1024
 
@@ -35,6 +36,10 @@ class GCSIterator(object):
     self._bytes_read = 0
     self._capacity = capacity
 
+    # Stubs for testing.
+    self._sleep = time.sleep
+    self._rand = random.random
+
   def __iter__(self):
     return self
 
@@ -44,7 +49,7 @@ class GCSIterator(object):
         self._last_line = self._lines[self._line_num]
 
       if not self._done:
-        self._buffer, self._done = self.read()
+        self._buffer, self._done = self.read(3)
 
       else:
         self._buffer = ''
@@ -89,39 +94,65 @@ class GCSIterator(object):
 
 
   def read(self, num_retries=0):
-    headers = {
-      'range': 'bytes=%d-%d' % (
-        self._progress, self._progress + self._chunksize)
-    }
-    logging.info('read bytes=%d-%d/%s' % (self._progress,
-                                          (self._progress + self._chunksize),
-                                          str(self._total_size) if self._total_size else '*'))
-    http = self._request.http
+    """Get the next chunk of the download.
 
-    for retry_num in xrange(num_retries + 1):
-      if retry_num > 0:
-        self._sleep(self._rand() * 2 ** retry_num)
-        logging.warning(
-          'Retry #%d for media download: GET %s, following status: %d'
-          % (retry_num, self._uri, resp.status))
+    Args:
+      num_retries: Integer, number of times to retry 500's with randomized
+            exponential backoff. If all retries fail, the raised HttpError
+            represents the last request. If zero (default), we attempt the
+            request only once.
 
-      resp, content = http.request(self._uri, headers=headers)
-      if resp.status < 500:
-        break
+    Returns:
+      (status, done): (MediaDownloadStatus, boolean)
+         The value of 'done' will be True when the media has been fully
+         downloaded.
 
-    if resp.status in [200, 206]:
-      if 'content-location' in resp and resp['content-location'] != self._uri:
-        self._uri = resp['content-location']
-      self._progress += len(content)
+    Raises:
+      apiclient.errors.HttpError if the response was not a 2xx.
+      httplib2.HttpLib2Error if a transport error has occured.
+    """
 
-      if 'content-range' in resp:
-        content_range = resp['content-range']
-        length = content_range.rsplit('/', 1)[1]
-        self._total_size = int(length)
+    try:
 
-      if self._progress == self._total_size:
-        self._done = True
-      return content, self._done
-    else:
-      raise HttpError(resp, content, uri=self._uri)
+      headers = {
+        'range': 'bytes=%d-%d' % (
+          self._progress, self._progress + self._chunksize)
+      }
+      http = self._request.http
+      # logging.info('read bytes=%d-%d/%s' % (self._progress,
+      #                                       (self._progress + self._chunksize),
+      #                                       str(self._total_size) if self._total_size else '*'))
 
+      for retry_num in xrange(num_retries + 1):
+        if retry_num > 0:
+          self._sleep(self._rand() * 2 ** retry_num)
+          logging.warning(
+            'Retry #%d for media download: GET %s, following status: %d'
+            % (retry_num, self._uri, resp.status))
+
+        resp, content = http.request(self._uri, headers=headers)
+        if resp.status < 500:
+          break
+
+      if resp.status in [200, 206]:
+        if 'content-location' in resp and resp['content-location'] != self._uri:
+          self._uri = resp['content-location']
+        self._progress += len(content)
+
+        if 'content-range' in resp:
+          content_range = resp['content-range']
+          length = content_range.rsplit('/', 1)[1]
+          self._total_size = int(length)
+
+        if self._progress == self._total_size:
+          self._done = True
+        return content, self._done
+      else:
+        raise HttpError(resp, content, uri=self._uri)
+
+    except Exception as e:
+      logging.warning('gcs iterator error manual retry')
+      logging.error(e.message)
+
+      self._sleep(self._rand() * 2 ** 2)
+      self.read()

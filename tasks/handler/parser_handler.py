@@ -42,4 +42,7 @@ class ParseCSVHandler(webapp2.RequestHandler):
 
       new_schedule.error = 'add schedule job taskqueue fail. retry later.'
 
+      new_schedule.is_dry_run = parameters.get('is_dry_run')
+      new_schedule.dry_run_fail_rate = parameters.get('dry_run_fail_rate')
+
       new_schedule.put()
