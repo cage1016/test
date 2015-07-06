@@ -4,6 +4,7 @@
 .DS_Store
 *.p12
 *.pem
+*.der
 
 */bower_components
 */node_modules
@@ -16,3 +17,7 @@
 
 #client_secret
 default/application/client_secret.json
+
+#recipient txt
+tasks/*.csv
+tasks/debug
