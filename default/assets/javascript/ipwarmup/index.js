@@ -11,9 +11,12 @@ var React = require('react');
 var UploadApp = require('../share/uploadApp');
 var AddScheduleApp = require('../share/addScheduleApp');
 var ListIPWarmupScheduleApp = require('../share/listIPWarmupScheduleApp');
+var DetailScheduleApp = require('../share/detailScheduleApp');
 
 module.exports = {
-  init: function (action) {
+  init: function (args) {
+    args = args || '';
+    var action = args.split('/')[0];
 
     switch (action) {
       case 'resource':
@@ -27,6 +30,15 @@ module.exports = {
 
         React.render(<AddScheduleApp header={'Add IP Warmup Schedule'} type={'ipwarmup'}/>,
           document.getElementById('add-ip-warmup-schedule')
+        );
+
+        break;
+      case 'detail':
+
+        var id = args.split('/')[1];
+
+        React.render(<DetailScheduleApp id={id}/>,
+          document.getElementById('detail-schedule')
         );
 
         break;

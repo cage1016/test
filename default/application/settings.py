@@ -25,6 +25,8 @@ WEB_CLIENT_ID = '24182559640-juv18blbdckri5rsp4ik0e0th9v5lfph.apps.googleusercon
 
 DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
 
+SERVICE_ACCOUNT_EMAIL = '24182559640-m9p986sd0khfe2b6hc0m018f9b3bob6f@developer.gserviceaccount.com'
+
 ADMINS = [
   'cage@mitac.com.tw',
   'sunnyhu@mitac.com.tw',

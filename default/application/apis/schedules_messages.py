@@ -73,6 +73,10 @@ class SchedulesInsertResponse(messages.Message):
   msg = messages.StringField(1)
 
 
+class SchedulesDumpRequest(messages.Message):
+  dumpType = messages.StringField(2)
+
+
 SCHEDULES_LIST_RESOURCE = endpoints.ResourceContainer(
   SchedulesListRequest,
   p=messages.StringField(2),
@@ -86,3 +90,10 @@ SCHEDULES_INSERT_RESOURCE = endpoints.ResourceContainer(
 SCHEDULES_DELETE_RESOURCE = endpoints.ResourceContainer(
   SchedulesDeleteRequest,
   id=messages.StringField(2, required=True))
+
+SCHEDULES_GET_RESOURCE = endpoints.ResourceContainer(
+  id=messages.StringField(1, required=True))
+
+SCHEDULES_DUMP_RESOURCE = endpoints.ResourceContainer(
+  SchedulesDumpRequest,
+  id=messages.StringField(1, required=True))
