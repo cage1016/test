@@ -11,9 +11,9 @@ from handler.parser_handler import ParseCSVHandler
 from handler.mailsend_handler import ScheduleHandler
 from handler.delete_handler import GCSResourcesDeleteHandler, ScheduleDeleteCheckHandler, ScheduleDeleteHandler
 from handler.failmail_handler import RetryCheckHandler
-from recipient_queue_data_health import RecipientQueueDataHealthCheckHandler
+# from recipient_queue_data_health import RecipientQueueDataHealthCheckHandler
 
-from handler.dumps import LogEailDumperHandler
+from handler.dumps import DumperHandler
 
 
 class TasksHandler(webapp2.RequestHandler):
@@ -32,7 +32,7 @@ routes = [
 
   (r'/tasks/retry_check', RetryCheckHandler),
 
-  (r'/tasks/recipient_queue_data_health_check', RecipientQueueDataHealthCheckHandler),
+  # (r'/tasks/recipient_queue_data_health_check', RecipientQueueDataHealthCheckHandler),
 
   webapp2.Route('/tasks/_cb/deferred/<module>/<name>', tasks.DeferredHandler),
 
@@ -40,7 +40,7 @@ routes = [
   (r'/tasks/clear_retry', ClearReTryHandler),
   (r'/tasks/clear_recipient_queue_data', ClearRecipientQueueDataHandler),
 
-  (r'/tasks/logemail_dump', LogEailDumperHandler),
+  (r'/tasks/dump', DumperHandler),
 
   (r'/.*', TasksHandler)
 ]

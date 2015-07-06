@@ -14,6 +14,7 @@ else:
 DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
 
 # google cloud storage download chucks size
+# default 1 * 1024 * 1024 (1MB)
 CHUNKSIZE = 1 * 1024 * 1024
 
 # ipwarmup schedule multiple put size

@@ -6,6 +6,8 @@ import datetime
 import logging
 import re
 import time
+import decimal
+import random
 
 from google.appengine import runtime
 from google.appengine.api.taskqueue import taskqueue
@@ -156,3 +158,10 @@ def timeit(function):
   return _decorated
 
 
+def true_false_pick(false_rate=0.5):
+  exponent = decimal.Decimal(str(false_rate)).as_tuple().exponent
+  t = int(1 / pow(10, exponent))
+
+  number_of_false = int(t * false_rate)
+  number_of_true = t - number_of_false
+  return random.choice([True] * number_of_true + [False] * number_of_false)
