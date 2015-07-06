@@ -55,6 +55,13 @@ class IPWamrupResourceHandler(BaseRequestHandler):
     self.render('ipwarmup/ipwarmup_resource.html', **params)
 
 
+class IPWamrupScheduleDetailHandler(BaseRequestHandler):
+  @my_login_required
+  @my_admin_required
+  def get(self, id):
+    self.render('ipwarmup/ipwarmup_detail.html')
+
+
 class IPWamrupAddJobHandler(AbstractHandler):
   def post(self):
     recipient_txt_urlsafe = self.request.get('recipientTxtUrlsafe')
@@ -113,6 +120,7 @@ ip_warmup_route = [
   (r'/ipwarmup', IPWamrupListHandler),
   (r'/ipwarmup/new', IPWamrupNewHandler),
   (r'/ipwarmup/resource', IPWamrupResourceHandler),
+  (r'/ipwarmup/detail/(\S+)', IPWamrupScheduleDetailHandler),
 
   (r'/api/ipwarmup/addjob', IPWamrupAddJobHandler),
 

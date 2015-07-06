@@ -20,11 +20,20 @@ class SchedulesResponseMessage(messages.Message):
   edm_object_name = messages.StringField(8)
   txt_object_name = messages.StringField(9)
   created = messages.StringField(10)
-  schedule_executed = messages.BooleanField(11)
-  sendgrid_account = messages.StringField(12)
-  replace_edm_csv_property = messages.StringField(13)
-  invalid_email = messages.IntegerField(14)
-  error = messages.StringField(15)
+  sendgrid_account = messages.StringField(11)
+  replace_edm_csv_property = messages.StringField(12)
+  invalid_email = messages.IntegerField(13)
+  error = messages.StringField(14)
+  success_worker = messages.IntegerField(15)
+  fail_worker = messages.IntegerField(16)
+  tasks_executed_count = messages.IntegerField(17)
+  status = messages.StringField(18)
+  hour_target_capacity = messages.IntegerField(19)
+  unsend_recipients_log = messages.StringField(20)
+  send_recipients_log = messages.StringField(21)
+  sender_name = messages.StringField(22)
+  sender_email = messages.StringField(23)
+  is_dry_run = messages.BooleanField(24)
 
 
 class SchedulesListResponse(messages.Message):
@@ -64,6 +73,10 @@ class SchedulesInsertResponse(messages.Message):
   msg = messages.StringField(1)
 
 
+class SchedulesDumpRequest(messages.Message):
+  dumpType = messages.StringField(2)
+
+
 SCHEDULES_LIST_RESOURCE = endpoints.ResourceContainer(
   SchedulesListRequest,
   p=messages.StringField(2),
@@ -77,3 +90,10 @@ SCHEDULES_INSERT_RESOURCE = endpoints.ResourceContainer(
 SCHEDULES_DELETE_RESOURCE = endpoints.ResourceContainer(
   SchedulesDeleteRequest,
   id=messages.StringField(2, required=True))
+
+SCHEDULES_GET_RESOURCE = endpoints.ResourceContainer(
+  id=messages.StringField(1, required=True))
+
+SCHEDULES_DUMP_RESOURCE = endpoints.ResourceContainer(
+  SchedulesDumpRequest,
+  id=messages.StringField(1, required=True))
