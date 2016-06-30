@@ -17,20 +17,18 @@ logging.info("Starting application in DEBUG mode: %s", DEBUG)
 if DEBUG:
   API_ROOT = 'http://localhost:8080/_ah/api'
 else:
-  API_ROOT = 'https://mitac-cheerspoint-v20150518.appspot.com/_ah/api'
+  API_ROOT = 'https://cage-20160705-edm.appspot.com/_ah/api'
 
 CLIENT_SECRETS = os.path.join(os.path.dirname(__file__), 'client_secret.json')
 
-WEB_CLIENT_ID = '24182559640-juv18blbdckri5rsp4ik0e0th9v5lfph.apps.googleusercontent.com'
+WEB_CLIENT_ID = '591130412399-rj4b59imkhhpei2kgirq9frklfplnpec.apps.googleusercontent.com'
 
-DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
+DEVELOPER_KEY = 'AIzaSyCe1PxvzGZYMkqlCOaClwM2V5MJfmvh7zg'
 
-SERVICE_ACCOUNT_EMAIL = '24182559640-m9p986sd0khfe2b6hc0m018f9b3bob6f@developer.gserviceaccount.com'
+SERVICE_ACCOUNT_EMAIL = 'mail-522@cage-20160705-edm.iam.gserviceaccount.com'
 
 ADMINS = [
-  'cage@mitac.com.tw',
-  'sunnyhu@mitac.com.tw',
-  'simonsu@mitac.com.tw'
+  'cage.chung@gmail.com',
 ]
 
 SENDGRID = {
@@ -39,12 +37,12 @@ SENDGRID = {
 }
 
 SITE_NAME = 'cheerspoint'
-BASIC_SITE_URL = 'https://mitac-cheerspoint-v20150518.appspot.com/'
+BASIC_SITE_URL = 'https://cage-20160705-edm.appspot.com/'
 SITE_OWNER = 'KAI CHU CHUNG'
 DISQUS_SHORTNAME = 'cheerspoint'
 
 # recipient upload bucket
-BUCKET = 'cheerspoint-recipient'
+BUCKET = 'cage-20160705-edm.appspot.com'
 
 cheerspoint_api = endpoints.api(name='cheerspoint',
                                 version='v1',

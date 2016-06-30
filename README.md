@@ -5,9 +5,9 @@ cheerspoints POC
 
 ##Projects
 
--	Live site: [Cheerspoint](https://mitac-cheerspoint-v20150518.appspot.com/)
--	webmasters: https://mitac-cheerspoint-v20150518.appspot.com/
--	Project Id: **mitac-cheerspoint-v20150518**
+-	Live site: [Cheerspoint](https://cage-20160705-edm.appspot.com/)
+-	webmasters: https://cage-20160705-edm.appspot.com/
+-	Project Id: **cage-20160705-edm**
 -	Project Number: **24182559640**
 -	gitlab: (todo)
 

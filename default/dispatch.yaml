@@ -1,10 +1,10 @@
-application: mitac-cheerspoint-v20150518
+application: cage-20160705-edm
 
 dispatch:
   - url: "*/favicon.ico"
     module: default
 
-  - url: "mitac-cheerspoint-v20150518.appspot.com/"
+  - url: "cage-20160705-edm.appspot.com/"
     module: default
 
   - url: "*/tasks/*"
@@ -14,7 +14,7 @@ dispatch:
 #  - url: "*/webhook/*"
 #    module: webhook
 
-  - url: "*/google40fc41ccc276e5c5.html"
+  - url: "*/googleae8f4bcce8bec00c.html"
     module: ownership
 
   - url: "*/*"

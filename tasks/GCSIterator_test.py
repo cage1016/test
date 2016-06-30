@@ -42,7 +42,7 @@ from apiclient.discovery import build as discovery_build
 import unittest
 from GCSIterator import GCSIterator
 
-DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
+DEVELOPER_KEY = 'AIzaSyCe1PxvzGZYMkqlCOaClwM2V5MJfmvh7zg'
 
 from oauth2client.client import SignedJwtAssertionCredentials
 
@@ -65,7 +65,7 @@ def get_authenticated_service():
 class GCSIteratorTest(unittest.TestCase):
   def setUp(self):
     gcs_service = get_authenticated_service()
-    bucket_name = u'cheerspoint-recipient'
+    bucket_name = u'cage-20160705-edm.appspot.com'
     txt_object_name = u'ipwarmup/cage@mitac.com.tw/kaichu1016_0000110.csv'
 
     request = gcs_service.objects().get_media(bucket=bucket_name, object=txt_object_name.encode('utf8'))

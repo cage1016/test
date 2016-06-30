@@ -11,7 +11,7 @@ if os.environ.get('SERVER_SOFTWARE', '').startswith('Development'):
 else:
   DEBUG = False
 
-DEVELOPER_KEY = 'AIzaSyAtxMdn2Da20CQIRzWueYEejehJFyBXl2s'
+DEVELOPER_KEY = 'AIzaSyCe1PxvzGZYMkqlCOaClwM2V5MJfmvh7zg'
 
 # google cloud storage download chucks size
 # default 1 * 1024 * 1024 (1MB)
@@ -32,7 +32,7 @@ EDM_CONTENT_MEMCACHE_TIME = 7200
 MAX_TASKSQUEUE_EXECUTED_TIME = 500
 
 # recipient upload bucket
-BUCKET = 'cheerspoint-recipient'
+BUCKET = 'cage-20160705-edm.appspot.com'
 
 # SENDGRID = {
 # 'USERNAME': 'kaichu',

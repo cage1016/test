@@ -102,11 +102,11 @@ Options:
 ```
 
 ```sh
-appcfg.py --application=s~mitac-cheerspoint-v20150518 --url=https://mitac-cheerspoint-v20150518.appspot.com/_ah/remote_api/ --filename=logemails.csv --kind=LogEmail --skip_sdk_update_check download_data .
+appcfg.py --application=s~cage-20160705-edm --url=https://cage-20160705-edm.appspot.com/_ah/remote_api/ --filename=logemails.csv --kind=LogEmail --skip_sdk_update_check download_data .
 ```
 
 ####Step 3: import data to development server
 
 ```sh
-appcfg.py upload_data --url=http://localhost:8080/_ah/remote_api --filename=bulkloader-results-20150610.092142.sql3 --application=dev~mitac-cheerspoint-v20150518
+appcfg.py upload_data --url=http://localhost:8080/_ah/remote_api --filename=bulkloader-results-20150610.092142.sql3 --application=dev~cage-20160705-edm
 ```

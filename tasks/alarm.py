@@ -7,7 +7,7 @@ class EMailer(object):
   @classmethod
   def send(self, subject, email, body):
     message = mail.EmailMessage(
-      sender='{} <{}>'.format('Mimail 系統通知', 'mitac-cheerspoint-v20150518@appspot.gserviceaccount.com'),
+      sender='{} <{}>'.format('Mimail 系統通知', 'cage-20160705-edm@appspot.gserviceaccount.com'),
       subject=subject,
       body=body,
       to=email

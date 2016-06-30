@@ -21,7 +21,7 @@ module.exports = {
     switch (action) {
       case 'resource':
 
-        React.render(<UploadApp bucketName={'cheerspoint-recipient'} objectNamePerfix={'ipwarmup'}/>,
+        React.render(<UploadApp bucketName={'cage-20160705-edm.appspot.com'} objectNamePerfix={'ipwarmup'}/>,
           document.getElementById('uploadApp')
         );
 
