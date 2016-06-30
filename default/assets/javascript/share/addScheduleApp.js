@@ -137,6 +137,7 @@ var addIPWarmupScheduleApp = React.createClass({
               <label for="inputEmail3" className="col-sm-2 control-label">Sendgrid Account</label>
               <div className="col-sm-10">
                 <select className="form-control" id="sendgridAccount" ref="sendgridAccount" onChange={this._onChange}>
+                  <option value="kaichu">kaichu</option>
                   <option value="mitac2hr">Cheerspoint:mitac-2hr</option>
                   <option value="mitacmax">Cheerspoint:mitac-max</option>
                   <option value="mitacwarmup1">Cheerspoint:mitac-warmup1</option>
@@ -303,6 +304,10 @@ var addIPWarmupScheduleApp = React.createClass({
           this.setState({'sendgridAccount': e.target.value});
 
           switch (e.target.value.trim()) {
+            case "kaichu":
+              this.setState({'senderEmail': 'kaichu@edm1.micloud.asia'});
+              this.setState({'senderName': 'kaichu'});
+              break;
             case "mitac2hr":
               this.setState({'senderEmail': 'mitac2hr@edm1.micloud.asia'});
               this.setState({'senderName': 'mitac2hr'});

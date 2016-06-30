@@ -11,6 +11,7 @@ import tasks
 from apiclient.http import MediaIoBaseDownload
 from google.appengine.api import memcache
 from apiclient.errors import HttpError
+from oauth2client.client import Error
 from httplib2 import HttpLib2Error
 from httplib import HTTPException, error
 from google.appengine.api import urlfetch_errors
@@ -180,8 +181,14 @@ class Parser(object):
         content = self.read_edm_file(gcs_service, self.edm_object_name)
         test_ = unicode(content, 'utf8')
 
-      except Exception:
-        raise ValueError('%s encode utf8 error.' % self.edm_object_name)
+      except HttpError, e:
+        if e.content == 'Invalid Credentials':
+          raise Error('%s read read_edm_file error: %s' % (self.edm_object_name, e.content))
+
+        raise e
+
+      except Exception, e:
+        raise ValueError('%s read read_edm_file error: %s' % (self.edm_object_name, e.message))
 
       # start parse csv
       for i, row in enumerate(self.csv_reader):
